@@ -27,6 +27,7 @@ def main():
                             v["direction"], v["data_relevance"] ) )
             conn.commit()
             print( "{} - {} vehicle positions for route {} stored".format( time.asctime(), len( vehicles ), route_id ) )
+        print ( flush=True )
         time.sleep( retr_interval )
 
 if __name__ == "__main__":
