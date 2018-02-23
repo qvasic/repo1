@@ -62,7 +62,7 @@ class ewaystat:
         route_point["vehicle_passes"].append( {"vehicle_id":vehicle_id, "time":pass_time_in_day} )
 
     def process_vehicle( self, day_start_end, route_id, vehicle_id, route_coords ):
-        print( "process_vehicle", day_start_end, route_id, vehicle_id )
+        #print( "process_vehicle", day_start_end, route_id, vehicle_id )
 
         curr = self.conn.cursor()
         curr.execute( """select time, lat, lng, dir from vehicle_pos
@@ -74,36 +74,70 @@ class ewaystat:
         for row in curr:
             vehicle_pos = { "lat":row[1], "lng":row[2], "direction":row[3] }
             current_p = eway.find_closest_route_point( route_coords, vehicle_pos )
+            current_t = row[0]
             if previous_p is not None:
-                if ( row[0]-previous_t > OFFROUTE_TIME or current_p["index"]<previous_p["index"] and
+                if ( current_t-previous_t > OFFROUTE_TIME or current_p["index"]<previous_p["index"] and
                      current_p["index"] + route_coords[-1]["index"] - previous_p["index"] > RESTART_LIMIT ):
+                    if previous_p is not None and previous_p["is_stop"]:
+                        ewaystat.add_vehicle_pass( route_coords[previous_p["index"]], vehicle_id, previous_t )
                     previous_p = None
                     previous_t = None
                 else:
-                    for i in range( previous_p["index"], current_p["index"] ):
-                        if route_coords[i]["is_stop"]:
-                            if current_p["dist_from_start"] == previous_p["dist_from_start"]:
-                                pass_time = previous_t
-                            else:
-                                pass_time = ( previous_t + 
-                                              (row[0]-previous_t) * 
-                                              ( ( route_coords[i]["dist_from_start"]-previous_p["dist_from_start"] ) / 
-                                                ( current_p["dist_from_start"]-previous_p["dist_from_start"] ) )
-                                            )
-                                print( "calc_time_stamp", """{} = {} + ({}-{}) * ( ( {}-{} ) / ( {}-{} ) )""".format(
-                                    pass_time, previous_t, row[0], previous_t, route_coords[i]["dist_from_start"], previous_p["dist_from_start"],
-                                    current_p["dist_from_start"], previous_p["dist_from_start"]
-                                ) )
-                            ewaystat.add_vehicle_pass( route_coords[i], vehicle_id, pass_time )
+                    if previous_p["index"] <= current_p["index"]:
+                        for i in range( previous_p["index"], current_p["index"] ):
+                            if route_coords[i]["is_stop"]:
+                                if current_p["dist_from_start"] == previous_p["dist_from_start"]:
+                                    pass_time = previous_t
+                                else:
+                                    pass_time = ( previous_t + 
+                                                (current_t-previous_t) * 
+                                                ( ( route_coords[i]["dist_from_start"]-previous_p["dist_from_start"] ) / 
+                                                    ( current_p["dist_from_start"]-previous_p["dist_from_start"] ) )
+                                                )
+                                    #print( "calc_time_stamp", """{} = {} + ({}-{}) * ( ( {}-{} ) / ( {}-{} ) )""".format(
+                                    #    pass_time, previous_t, current_t, previous_t, route_coords[i]["dist_from_start"], previous_p["dist_from_start"],
+                                    #    current_p["dist_from_start"], previous_p["dist_from_start"]
+                                    #) )
+                                ewaystat.add_vehicle_pass( route_coords[i], vehicle_id, pass_time )
+
+                    else:
+                        dist_zero = route_coords[-1]["dist_from_start"] - previous_p["dist_from_start"]
+                        if dist_zero + current_p["dist_from_start"] == 0:
+                            time_zero = previous_t
+                        else:
+                            time_zero = previous_t + (current_t-previous_t) * dist_zero / ( dist_zero + current_p["dist_from_start"] )
+
+                        for i in range( previous_p["index"], route_coords[-1]["index"]+1):
+                            if route_coords[i]["is_stop"]:
+                                if dist_zero == 0:
+                                    pass_time = previous_t
+                                else:
+                                    pass_time = ( previous_t + 
+                                                (time_zero-previous_t) * 
+                                                ( ( route_coords[i]["dist_from_start"]-previous_p["dist_from_start"] ) / 
+                                                    dist_zero
+                                                ) )
+                                ewaystat.add_vehicle_pass( route_coords[i], vehicle_id, pass_time )
+                        for i in range( current_p["index"] ):
+                            if route_coords[i]["is_stop"]:
+                                if current_p["dist_from_start"] == 0:
+                                    pass_time = time_zero
+                                else:
+                                    pass_time = ( time_zero + 
+                                                (current_t-time_zero) * 
+                                                ( route_coords[i]["dist_from_start"] / current_p["dist_from_start"] )
+                                                )
+                                ewaystat.add_vehicle_pass( route_coords[i], vehicle_id, pass_time )
+
 
             previous_p = current_p
-            previous_t = row[0]
+            previous_t = current_t
         
         if previous_p is not None and previous_p["is_stop"]:
             ewaystat.add_vehicle_pass( route_coords[previous_p["index"]], vehicle_id, previous_t )
 
     def process_route( self, day_start_end, route_id, route_coords ):
-        print( "process_route: {}".format( route_id ) )
+        #print( "process_route: {}".format( route_id ) )
 
         curr = self.conn.cursor()
         curr.execute( """select vh_id from vehicle_pos 
@@ -223,6 +257,7 @@ def self_test():
         {'lng': 24.001, 'direction': 2, 'index': 0, 'dist_from_start': 0, 'lat': 49.006, 'is_stop': False},
         {'lng': 24.0, 'direction': 2, 'index': 0, 'title': 'stop24', 'dist_from_start': 0, 'lat': 49.004, 'is_stop': True},
         {'lng': 24.0, 'direction': 2, 'index': 0, 'dist_from_start': 0, 'lat': 49.002, 'is_stop': False},
+        {'lng': 24.0, 'direction': 2, 'index': 0, 'dist_from_start': 0, 'lat': 49.000, 'is_stop': False},
     ]
 
     def enum_and_measure_route( coords ):
@@ -239,13 +274,13 @@ def self_test():
     e = ewaystat()
     e.conn = sqlite3.connect( "data/unittestdata.db" )
     e.process_route( (0, 10000), 1, test_route_coords )
-    for p in ( p for p in test_route_coords if "vehicle_passes" in p ):
-        print( "vehicle_passes", p["index"], p["title"], p["vehicle_passes"] )
+    #for p in ( p for p in test_route_coords if "vehicle_passes" in p ):
+    #    print( "vehicle_passes", p["index"], p["title"], p["vehicle_passes"] )
     
     expected_vehicle_passes = [
-        ( 0, "stop1", [{'vehicle_id': 1, 'time': 7201}] ), 
-        ( 2, "stop2", [{'vehicle_id': 1, 'time': 7259}] ),
-        ( 5, "stop3", [{'vehicle_id': 1, 'time': 7332}] ),
+        ( 0, "stop1", [{'vehicle_id': 1, 'time': 7201}, {'time': 9214, 'vehicle_id': 1}, {'vehicle_id': 1, 'time': 9730}, {'vehicle_id': 1, 'time': 9923}] ), 
+        ( 2, "stop2", [{'vehicle_id': 1, 'time': 7259}, {'time': 9220, 'vehicle_id': 1}, {'vehicle_id': 1, 'time': 9930}] ),
+        ( 5, "stop3", [{'vehicle_id': 1, 'time': 7332}, {'time': 9230, 'vehicle_id': 1}] ),
         ( 7, "stop4", [{'time': 7352, 'vehicle_id': 1}] ), 
         ( 10, "stop5", [{'time': 7388, 'vehicle_id': 1}] ),
         ( 13, "stop6", [{'vehicle_id': 1, 'time': 7461}] ), 
@@ -254,6 +289,18 @@ def self_test():
         ( 22, "stop9", [{'vehicle_id': 1, 'time': 7700}] ),
         ( 25, "stop10", [{"vehicle_id":1, "time": 7790}] ),
         ( 28, "stop11", [{"vehicle_id":1, "time": 7880}] ),
+        ( 30, "stop12", [{'vehicle_id': 1, 'time': 7911}] ),
+        ( 33, "stop13", [{'vehicle_id': 1, 'time': 7922}] ), 
+        ( 36, "stop14", [{'vehicle_id': 1, 'time': 7933}] ),
+        ( 38, "stop15", [{'vehicle_id': 1, 'time': 7940}] ),
+        ( 44, "stop17", [{'vehicle_id': 1, 'time': 8050}] ),
+        ( 46, "stop18", [{'time': 8073, 'vehicle_id': 1}] ),
+        ( 48, "stop19", [{'time': 8088, 'vehicle_id': 1}] ),
+        ( 50, "stop20", [{'time': 8109, 'vehicle_id': 1}] ),
+        ( 53, "stop21", [{'vehicle_id': 1, 'time': 8230}] ), 
+        ( 56, "stop22", [{'vehicle_id': 1, 'time': 9901}] ), 
+        ( 58, "stop23", [{'vehicle_id': 1, 'time': 9200}, {'vehicle_id': 1, 'time': 9905}] ),
+        ( 61, "stop24", [{'time': 9209, 'vehicle_id': 1}, {'vehicle_id': 1, 'time': 9916}] ),
     ]
 
     if expected_vehicle_passes == [ ( s["index"], s["title"], s["vehicle_passes"] ) 
