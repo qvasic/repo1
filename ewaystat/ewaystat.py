@@ -13,6 +13,18 @@ OFFROUTE_TIME = 59
 # if it started the route over
 RESTART_LIMIT = 10
 
+def secs_time_to_str( secs ):
+    """ Formats seconds from day start in form HH:MM:SS """
+    return str( int(secs//3600) ) + ":" + str( int(secs%3600//60) ) + ":" + str( int(secs%3600%60) )
+
+def get_day_secs( secs_from_epoch ):
+    """ Converts secs from Epoch to secs from day start. """
+    time_struct = time.localtime( secs_from_epoch )
+    return ( time_struct.tm_hour*60*60 + 
+             time_struct.tm_min*60 +
+             time_struct.tm_sec )
+
+
 def get_day( t, day_start_hour = 3 ):
     """Returns tuple with first and one-after-last seconds of the route working day, 
     which include time t."""
@@ -55,15 +67,55 @@ class ewaystat:
     def add_vehicle_pass( route_point, vehicle_id, pass_time ):
         if "vehicle_passes" not in route_point:
             route_point["vehicle_passes"] = []
-        pass_time_struct = time.localtime( pass_time )
-        pass_time_in_day = ( pass_time_struct.tm_hour*60*60 + 
-                            pass_time_struct.tm_min*60 +
-                            pass_time_struct.tm_sec )
-        route_point["vehicle_passes"].append( {"vehicle_id":vehicle_id, "time":pass_time_in_day} )
+        route_point["vehicle_passes"].append( {"vehicle_id":vehicle_id, "time":get_day_secs(pass_time) } )
 
     def process_vehicle( self, day_start_end, route_id, vehicle_id, route_coords ):
-        #print( "process_vehicle", day_start_end, route_id, vehicle_id )
 
+        def scan_straight():
+            for i in range( previous_p["index"], current_p["index"] ):
+                if route_coords[i]["is_stop"]:
+                    if current_p["dist_from_start"] == previous_p["dist_from_start"]:
+                        pass_time = previous_t
+                    else:
+                        pass_time = ( previous_t + 
+                                    (current_t-previous_t) * 
+                                    ( ( route_coords[i]["dist_from_start"]-previous_p["dist_from_start"] ) / 
+                                        ( current_p["dist_from_start"]-previous_p["dist_from_start"] ) )
+                                    )
+                        #print( "calc_time_stamp", """{} = {} + ({}-{}) * ( ( {}-{} ) / ( {}-{} ) )""".format(
+                        #    pass_time, previous_t, current_t, previous_t, route_coords[i]["dist_from_start"], previous_p["dist_from_start"],
+                        #    current_p["dist_from_start"], previous_p["dist_from_start"]
+                        #) )
+                    ewaystat.add_vehicle_pass( route_coords[i], vehicle_id, pass_time )
+        
+        def scan_to_end_and_after():
+            dist_zero = route_coords[-1]["dist_from_start"] - previous_p["dist_from_start"]
+            if dist_zero + current_p["dist_from_start"] == 0:
+                time_zero = previous_t
+            else:
+                time_zero = previous_t + (current_t-previous_t) * dist_zero / ( dist_zero + current_p["dist_from_start"] )
+
+            for i in range( previous_p["index"], route_coords[-1]["index"]+1):
+                if route_coords[i]["is_stop"]:
+                    if dist_zero == 0:
+                        pass_time = previous_t
+                    else:
+                        pass_time = ( previous_t + 
+                                    (time_zero-previous_t) * 
+                                    ( ( route_coords[i]["dist_from_start"]-previous_p["dist_from_start"] ) / 
+                                        dist_zero
+                                    ) )
+                    ewaystat.add_vehicle_pass( route_coords[i], vehicle_id, pass_time )
+            for i in range( current_p["index"] ):
+                if route_coords[i]["is_stop"]:
+                    if current_p["dist_from_start"] == 0:
+                        pass_time = time_zero
+                    else:
+                        pass_time = time_zero + ( ( current_t-time_zero ) * 
+                                                    ( route_coords[i]["dist_from_start"] / current_p["dist_from_start"] ) )
+                    ewaystat.add_vehicle_pass( route_coords[i], vehicle_id, pass_time )
+
+        #print( "process_vehicle", day_start_end, route_id, vehicle_id )
         curr = self.conn.cursor()
         curr.execute( """select time, lat, lng, dir from vehicle_pos
                             where ? <= time and time < ? and rt_id = ? and vh_id = ?
@@ -84,51 +136,9 @@ class ewaystat:
                     previous_t = None
                 else:
                     if previous_p["index"] <= current_p["index"]:
-                        for i in range( previous_p["index"], current_p["index"] ):
-                            if route_coords[i]["is_stop"]:
-                                if current_p["dist_from_start"] == previous_p["dist_from_start"]:
-                                    pass_time = previous_t
-                                else:
-                                    pass_time = ( previous_t + 
-                                                (current_t-previous_t) * 
-                                                ( ( route_coords[i]["dist_from_start"]-previous_p["dist_from_start"] ) / 
-                                                    ( current_p["dist_from_start"]-previous_p["dist_from_start"] ) )
-                                                )
-                                    #print( "calc_time_stamp", """{} = {} + ({}-{}) * ( ( {}-{} ) / ( {}-{} ) )""".format(
-                                    #    pass_time, previous_t, current_t, previous_t, route_coords[i]["dist_from_start"], previous_p["dist_from_start"],
-                                    #    current_p["dist_from_start"], previous_p["dist_from_start"]
-                                    #) )
-                                ewaystat.add_vehicle_pass( route_coords[i], vehicle_id, pass_time )
-
+                        scan_straight()
                     else:
-                        dist_zero = route_coords[-1]["dist_from_start"] - previous_p["dist_from_start"]
-                        if dist_zero + current_p["dist_from_start"] == 0:
-                            time_zero = previous_t
-                        else:
-                            time_zero = previous_t + (current_t-previous_t) * dist_zero / ( dist_zero + current_p["dist_from_start"] )
-
-                        for i in range( previous_p["index"], route_coords[-1]["index"]+1):
-                            if route_coords[i]["is_stop"]:
-                                if dist_zero == 0:
-                                    pass_time = previous_t
-                                else:
-                                    pass_time = ( previous_t + 
-                                                (time_zero-previous_t) * 
-                                                ( ( route_coords[i]["dist_from_start"]-previous_p["dist_from_start"] ) / 
-                                                    dist_zero
-                                                ) )
-                                ewaystat.add_vehicle_pass( route_coords[i], vehicle_id, pass_time )
-                        for i in range( current_p["index"] ):
-                            if route_coords[i]["is_stop"]:
-                                if current_p["dist_from_start"] == 0:
-                                    pass_time = time_zero
-                                else:
-                                    pass_time = ( time_zero + 
-                                                (current_t-time_zero) * 
-                                                ( route_coords[i]["dist_from_start"] / current_p["dist_from_start"] )
-                                                )
-                                ewaystat.add_vehicle_pass( route_coords[i], vehicle_id, pass_time )
-
+                        scan_to_end_and_after()
 
             previous_p = current_p
             previous_t = current_t
@@ -149,13 +159,30 @@ class ewaystat:
     def process_day( self, day_start_end ):
         print( "process_day:", day_start_end )
         curr = self.conn.cursor()
-        curr.execute( """select rt_id from vehicle_pos 
+        curr.execute( """select rt_id, min(time), max(time), count(*) from vehicle_pos 
                             where ? <= time and time < ? 
                             group by rt_id""", 
                       day_start_end )
         
-        for row in curr.fetchall():
-            self.process_route( day_start_end, row[0] )
+        for row in curr:
+            print( "rt_id: {}, min: {}, max: {}, entries: {}".format( row[0], secs_time_to_str( get_day_secs(row[1]) ),
+                                                                              secs_time_to_str( get_day_secs(row[2]) ), 
+                                                                              row[3] ) )
+            
+            """route_coords = eway.get_route_coords( row[0] )
+            self.process_route( day_start_end, row[0], route_coords )
+            print( "route_id", row[0] )
+            for point in route_coords:
+                if point["is_stop"]:
+                    if "vehicle_passes" not in point or len( point["vehicle_passes"] ) == 0:
+                        print( point["title"], "no vehicles passed")
+                    else:
+                        earliest = min( ( p["time"] for p in point["vehicle_passes"] ) )
+                        latest = max( ( p["time"] for p in point["vehicle_passes"] ) )
+                        avarage = (latest-earliest) / len( point["vehicle_passes"] )
+                        print( point["title"], "earliest: {}, latest: {}, avarage: {}".format( secs_time_to_str(earliest), 
+                                                                                               secs_time_to_str(latest), 
+                                                                                               secs_time_to_str(avarage) ) )"""
 
     def process( self ):
         curr = self.conn.cursor()
@@ -312,16 +339,6 @@ def self_test():
 
 def main():
     self_test()
-
-    #e = ewaystat()
-    #e.process()
-
-    #route = 11
-    #route_coords = eway.get_route_coords( route )
-    #e.process_route( (1517274000.0, 1517360400.0), route, route_coords )
-
-    #for stop in ( point for point in route_coords if point["is_stop"] ):
-    #    print( stop["title"], stop["vehicle_passes"] if "vehicle_passes" in stop else "", "\n" )
 
 if __name__ == "__main__":
     main()
