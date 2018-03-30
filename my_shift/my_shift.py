@@ -66,17 +66,12 @@ class my_shift_db:
         self.conn.commit()
 
     def get_today_clock_data( self, id ):
-        curr = self.conn.cursor()
-        today_start = my_shift_db.get_today_start()
-        query = """select time, in_out 
-                        from clock_data 
-                        where user_id = ? and 
-                            time >= ifnull( ( select max(time) from clock_data where user_id = ? and time < ? ), ? )
-                        order by time"""
-        curr.execute( query, ( id, id, today_start, today_start ) )
-        return curr.fetchall()
+        import time
+        return self.get_day_clock_data( id, time.time() )
 
-    def get_day_in_out_segments( self, id, t ):
+    def get_day_clock_data( self, id, t ):
+        """Return all clock_data records for the day, 
+           plus one record before that day (if there is any)."""
         curr = self.conn.cursor()
         first, last = my_shift_db.get_day_start_end( t )
         query = """select time, in_out 
@@ -84,12 +79,39 @@ class my_shift_db:
                         where user_id = ? and 
                             time >= ifnull( ( select max(time) from clock_data 
                                                   where user_id = ? and time < ? ), ? )
-                                end
+                                and
                             time < ?
                         order by time"""
         curr.execute( query, ( id, id, first, first, last ) )
-        for row in curr:
-            pass
+        return curr.fetchall()
+
+    def get_day_in_out_segments( self, id, t ):
+        """Returns list of tuple in form ( clock_in, clock_out, time_worked).
+        clock_in of the first record might be None, 
+        this means user didn't clocked out the day before.
+
+        clock_out of the last record might be None, this means that user is not clock_out today, 
+        or didn't clocked out in the end of the day in question.
+        """
+        import time
+        segs = []
+        first, last = my_shift_db.get_day_start_end( t )
+        last_clock_in = None
+        for r in self.get_day_clock_data( id, t ):
+            if r[1] == my_shift_db.IN:
+                last_clock_in = r[0]
+            elif last_clock_in is not None:
+                if last_clock_in < first:
+                    segs.append( ( None, r[0], r[0]-first ) )
+                else:
+                    segs.append( ( last_clock_in, r[0], r[0]-last_clock_in ) )
+                last_clock_in = None
+
+        if last_clock_in is not None:
+            segs.append( ( last_clock_in, None, 
+                           int( last if last < time.time() else time.time() )-last_clock_in ) )
+        return segs
+
 
 class my_shift:
     def __init__( self ):
@@ -99,6 +121,9 @@ class my_shift:
         print( "all registered users:", *self.db.get_all_users(), sep="\n", end="" )
 
     def format_HH_MM_SS( t, seconds=False ):
+        if t is None:
+            return ""
+
         import time
         s = time.localtime( t )
         return ( "{:02}:{:02}:{:02}".format( s[3], s[4], s[5] ) 
@@ -106,6 +131,7 @@ class my_shift:
                  "{:02}:{:02}".format( s[3], s[4] ) )
 
     def format_dur_HH_MM_SS( dur, seconds=False ):
+        dur = int( dur )
         SS = dur % 60
         MM = ( dur // 60 ) % 60
         HH = dur // 3600

@@ -41,38 +41,15 @@ class my_shift_wnd (tk.Frame):
 
     def update_btn_clck( self ):
         import time
-
         total_worked = 0
-        last_clock_in = None
-        today_start = my_shift_db.get_today_start()
-
         clock_data_text = "today\n"
         clock_data_text += "in\tout\tworked\n"
-        for l in self.db.get_today_clock_data( self.id ):
-            if l[1] == my_shift_db.IN and last_clock_in is None:
-                last_clock_in = l[0]
-            elif l[1] == my_shift_db.OUT and not last_clock_in is None:
-                if last_clock_in < today_start:
-                    worked = l[0] - today_start
-                    clock_data_text += ( "{}\t{}\t{}\n".format( "", 
-                                                my_shift.format_HH_MM_SS( l[0] ), 
-                                                my_shift.format_dur_HH_MM_SS( worked ) ) )
-                else:
-                    worked = l[0] - last_clock_in
-                    clock_data_text += ( "{}\t{}\t{}\n".format( my_shift.format_HH_MM_SS( last_clock_in ), 
-                                                              my_shift.format_HH_MM_SS( l[0] ), 
-                                                              my_shift.format_dur_HH_MM_SS( worked ) ) )
-                total_worked += worked
-                last_clock_in = None
-
-        if not last_clock_in is None:
-            worked = int( time.time() ) - last_clock_in
-            clock_data_text += ( "{}\t{}\t{}\n".format( my_shift.format_HH_MM_SS( last_clock_in ), 
-                                        "", 
-                                        my_shift.format_dur_HH_MM_SS( worked ) ) )
-            total_worked += worked
+        for seg in self.db.get_day_in_out_segments( self.id, time.time() ):
+            clock_data_text += ( "{}\t{}\t{}\n".format( my_shift.format_HH_MM_SS( seg[0] ), 
+                                                        my_shift.format_HH_MM_SS( seg[1] ), 
+                                                        my_shift.format_dur_HH_MM_SS( seg[2] ) ) )
+            total_worked += seg[2]
         clock_data_text += ( "\ntotal worked: \t{}\n".format( my_shift.format_dur_HH_MM_SS( total_worked ) ) )
-
         self.clock_data["text"] = clock_data_text
 
         self.after( 60000, self.update_btn_clck )
