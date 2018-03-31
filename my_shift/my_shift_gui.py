@@ -2,12 +2,8 @@
 
 TODO
 
-weekly
 choosing user
 editing
-misc bugs
-
-testcases
 
 """
 
@@ -25,10 +21,9 @@ class my_shift_wnd (tk.Frame):
         self.id = 0
         self.db = my_shift_db()
 
-        self.update_btn = tk.Button( self )
-        self.update_btn["text"] = "update"
-        self.update_btn["command"] = self.update_btn_clck
-        self.update_btn.pack()
+        self.status_lbl = tk.Label( self )
+        self.status_lbl["text"] = "OUT"
+        self.status_lbl.pack()
 
         self.clock_btn = tk.Button( self )
         self.clock_btn["text"] = "clock in/out"
@@ -39,26 +34,45 @@ class my_shift_wnd (tk.Frame):
         self.clock_data["text"] = ""
         self.clock_data.pack()
 
-        self.update_btn_clck()
+        self.update_clock_data()
 
-    def update_btn_clck( self ):
+    def update_clock_data( self ):
         import time
+        clock_data_text = ""
+
+        clock_data_text += "THIS WEEK\nday\tworked\n"
+        days = ( 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun' )
         total_worked = 0
-        clock_data_text = "today\n"
-        clock_data_text += "in\tout\tworked\n"
+        for i, d in enumerate( self.db.get_week_worked( self.id, time.time() ) ):
+            clock_data_text += "{}\t{}\n".format( days[i], my_shift.format_dur_HH_MM_SS( d ) )
+            total_worked += d
+        clock_data_text += ( "\ntotal: \t{}\n".format( my_shift.format_dur_HH_MM_SS( total_worked ) ) )
+
+
+        total_worked = 0
+        clock_data_text += "\nTODAY\nin\tout\tworked\n"
         for seg in self.db.get_day_in_out_segments( self.id, time.time() ):
             clock_data_text += ( "{}\t{}\t{}\n".format( my_shift.format_HH_MM_SS( seg[0] ), 
                                                         my_shift.format_HH_MM_SS( seg[1] ), 
                                                         my_shift.format_dur_HH_MM_SS( seg[2] ) ) )
             total_worked += seg[2]
-        clock_data_text += ( "\ntotal worked: \t{}\n".format( my_shift.format_dur_HH_MM_SS( total_worked ) ) )
+        clock_data_text += ( "\ntotal: \t\t{}\n".format( my_shift.format_dur_HH_MM_SS( total_worked ) ) )
         self.clock_data["text"] = clock_data_text
 
-        self.after( 60000, self.update_btn_clck )
+        if seg[1] is None:
+            self.clock_btn["text"] = "clock out"
+            self.status_lbl["text"] = "IN"
+            self.status_lbl["bg"] = "green"
+        else:
+            self.clock_btn["text"] = "clock in"
+            self.status_lbl["text"] = "OUT"
+            self.status_lbl["bg"] = "red"
+
+        self.after( 60000, self.update_clock_data )
 
     def clock_btn_clck( self ):
         self.db.clock_in_out( self.id )
-        self.update_btn_clck()
+        self.update_clock_data()
 
 def main():
     root = tk.Tk()

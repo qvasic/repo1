@@ -117,6 +117,19 @@ class my_shift_db:
                 segs.append( ( last_clock_in, None, effective_last-last_clock_in ) )
         return segs
 
+    def get_week_worked( self, id, t ):
+        import time
+
+        cur = t
+        wday = time.localtime( cur ).tm_wday
+        days_worked = []
+        for i in range( wday+1 ):
+            day_worked = sum( s[2] for s in self.get_day_in_out_segments( id, cur ) )
+            days_worked.append( day_worked )
+            cur = my_shift_db.get_day_start_end( cur )[0]-1
+
+        return list( reversed( days_worked ) )
+
 def run_tests():
     print( "running unit test cases" )
 
@@ -198,6 +211,12 @@ def run_tests():
     CURRENT_TIME = 513001
     unit_test_cases = (
         ( db.get_day_in_out_segments, [0, 511200], [(None, None, 1801)] ),
+    )
+    run_tests( unit_test_cases )
+
+    unit_test_cases = (
+        ( db.get_week_worked, [0, 338300 ], [ 0, 0, 0, 0, 7200, 7200, 7200 ] ),
+        ( db.get_week_worked, [0, 513001 ], [ 3600, 86400, 1801 ] ),
     )
     run_tests( unit_test_cases )
 

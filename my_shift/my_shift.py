@@ -30,40 +30,25 @@ class my_shift:
         import time
 
         total_worked = 0
-        #last_clock_in = None
         today_start = my_shift_db.get_today_start()
 
-        print( "print_today" )
+        print( "today" )
         print( "in\tout\tworked" )
         for seg in self.db.get_day_in_out_segments( self.id, time.time() ):
             print( "{}\t{}\t{}".format( my_shift.format_HH_MM_SS( seg[0] ), 
                                         my_shift.format_HH_MM_SS( seg[1] ), 
                                         my_shift.format_dur_HH_MM_SS( seg[2] ) ) )
             total_worked += seg[2]
-        #for l in self.db.get_today_clock_data( self.id ):
-        #    if l[1] == my_shift_db.IN and last_clock_in is None:
-        #        last_clock_in = l[0]
-        #    elif l[1] == my_shift_db.OUT and not last_clock_in is None:
-        #        if last_clock_in < today_start:
-        #            worked = l[0] - today_start
-        #            print( "{}\t{}\t{}".format( "", 
-        #                                        my_shift.format_HH_MM_SS( l[0] ), 
-        #                                        my_shift.format_dur_HH_MM_SS( worked ) ) )
-        #        else:
-        #            worked = l[0] - last_clock_in
-        #            print( "{}\t{}\t{}".format( my_shift.format_HH_MM_SS( last_clock_in ), 
-        #                                    my_shift.format_HH_MM_SS( l[0] ), 
-        #                                    my_shift.format_dur_HH_MM_SS( worked ) ) )
-        #        total_worked += worked
-        #        last_clock_in = None
-
-        #if not last_clock_in is None:
-        #    worked = int( time.time() ) - last_clock_in
-        #    print( "{}\t{}\t{}".format( my_shift.format_HH_MM_SS( last_clock_in ), 
-        #                                "", 
-        #                                my_shift.format_dur_HH_MM_SS( worked ) ) )
-        #    total_worked += worked
         print( "total worked: \t{}".format( my_shift.format_dur_HH_MM_SS( total_worked ) ) )
+
+    def menu_print_week( self ):
+        import time
+
+        print( "week\nday\tworked" )
+        days = [ "mon", "tue", "wed", "thu", "fri", "sat", "sun" ]
+
+        for i, worked in enumerate( self.db.get_week_worked( self.id, time.time() ) ):
+            print( "{}\t{}".format( days[i], my_shift.format_dur_HH_MM_SS( worked ) ) )
 
     def menu_clock_in_out( self ):
         print( "clock_in_out" )
@@ -72,7 +57,8 @@ class my_shift:
     def menu_print_help( self ):
         print( """possible commands
 command   explanation
-print     print today's clock data (or just press enter)
+day       print today's clock data (or just press enter)
+week      print this week stats
 clock     clock in or out
 help      print this help
 exit      exit""" )
@@ -84,6 +70,7 @@ exit      exit""" )
         self.exit = False
         menu_items = { "":      self.menu_print_today, 
                        "day":   self.menu_print_today, 
+                       "week":  self.menu_print_week, 
                        "clock": self.menu_clock_in_out, 
                        "help":  self.menu_print_help, 
                        "exit":  self.menu_toggle_exit
