@@ -1,117 +1,4 @@
-class my_shift_db:
-    IN = 0
-    OUT = 1
-
-    def get_day_start_end( t ):
-        """ Returns tuple with day's first second and 
-        one past last (in effect - next day's first second).
-        Parameter:
-        t - any second of the day in question.
-        Example: takes t=1521917008, returns (1521842400, 1521928800)
-        """
-        import time
-        first_struct = list( time.localtime( t ) )
-        last_struct = list( first_struct )
-        first_struct[3:6] = ( 0, 0, 0 )
-        last_struct[3:6] = ( 23, 59, 59 )
-        return ( int( time.mktime( time.struct_time( first_struct ) ) ), 
-                 int( time.mktime( time.struct_time( last_struct ) ) )+1 )
-
-    def get_today_start():
-        import time
-        return my_shift_db.get_day_start_end( time.time() )[0]
-
-    def __init__( self ):
-        import sqlite3
-        self.conn = sqlite3.connect( "my_shift.db" )
-    
-    def get_all_users( self ):
-        """ Returns list with all users registered in the system. """
-        curr = self.conn.cursor()
-        curr.execute( "select name from users" )
-        return [ row[0] for row in curr ]
-
-    def get_user_id( self, name ):
-        curr = self.conn.cursor()
-        row  = curr.execute( "select id from users where name = ?", ( name, ) ).fetchone()
-        if row is None:
-            return None
-        else:
-            return row[0]
-
-    def create_user( self, name ):
-        curr = self.conn.cursor()
-        row  = curr.execute( "select max(id) from users" ).fetchone()
-        if row is None or row[0] is None:
-            newid = 0
-        else:
-            newid = row[0]+1
-        curr.execute( "insert into users (name, id) values (?, ?)", ( name, newid ) )
-        self.conn.commit()
-        return newid
-
-    def clock_in_out( self, id ):
-        import time
-        curr = self.conn.cursor()
-        today_clock_data = curr.execute( """select time, in_out 
-                                                from clock_data 
-                                                where user_id = ? and time >= ? order by time""", 
-                                         ( id, my_shift_db.get_today_start() ) ).fetchall()
-        if len( today_clock_data ) == 0:
-            dir = my_shift_db.IN
-        else:
-            dir = my_shift_db.IN if today_clock_data[-1][1] == my_shift_db.OUT else my_shift_db.OUT
-        curr.execute( "insert into clock_data ( user_id, time, in_out ) values ( ?, ?, ? )",
-                      ( id, int( time.time() ), dir ) )
-        self.conn.commit()
-
-    def get_today_clock_data( self, id ):
-        import time
-        return self.get_day_clock_data( id, time.time() )
-
-    def get_day_clock_data( self, id, t ):
-        """Return all clock_data records for the day, 
-           plus one record before that day (if there is any)."""
-        curr = self.conn.cursor()
-        first, last = my_shift_db.get_day_start_end( t )
-        query = """select time, in_out 
-                        from clock_data 
-                        where user_id = ? and 
-                            time >= ifnull( ( select max(time) from clock_data 
-                                                  where user_id = ? and time < ? ), ? )
-                                and
-                            time < ?
-                        order by time"""
-        curr.execute( query, ( id, id, first, first, last ) )
-        return curr.fetchall()
-
-    def get_day_in_out_segments( self, id, t ):
-        """Returns list of tuple in form ( clock_in, clock_out, time_worked).
-        clock_in of the first record might be None, 
-        this means user didn't clocked out the day before.
-
-        clock_out of the last record might be None, this means that user is not clock_out today, 
-        or didn't clocked out in the end of the day in question.
-        """
-        import time
-        segs = []
-        first, last = my_shift_db.get_day_start_end( t )
-        last_clock_in = None
-        for r in self.get_day_clock_data( id, t ):
-            if r[1] == my_shift_db.IN:
-                last_clock_in = r[0]
-            elif last_clock_in is not None:
-                if last_clock_in < first:
-                    segs.append( ( None, r[0], r[0]-first ) )
-                else:
-                    segs.append( ( last_clock_in, r[0], r[0]-last_clock_in ) )
-                last_clock_in = None
-
-        if last_clock_in is not None:
-            segs.append( ( last_clock_in, None, 
-                           int( last if last < time.time() else time.time() )-last_clock_in ) )
-        return segs
-
+from my_shift_db import my_shift_db
 
 class my_shift:
     def __init__( self ):
@@ -122,7 +9,7 @@ class my_shift:
 
     def format_HH_MM_SS( t, seconds=False ):
         if t is None:
-            return ""
+            return "-"
 
         import time
         s = time.localtime( t )
@@ -143,34 +30,39 @@ class my_shift:
         import time
 
         total_worked = 0
-        last_clock_in = None
+        #last_clock_in = None
         today_start = my_shift_db.get_today_start()
 
         print( "print_today" )
         print( "in\tout\tworked" )
-        for l in self.db.get_today_clock_data( self.id ):
-            if l[1] == my_shift_db.IN and last_clock_in is None:
-                last_clock_in = l[0]
-            elif l[1] == my_shift_db.OUT and not last_clock_in is None:
-                if last_clock_in < today_start:
-                    worked = l[0] - today_start
-                    print( "{}\t{}\t{}".format( "", 
-                                                my_shift.format_HH_MM_SS( l[0] ), 
-                                                my_shift.format_dur_HH_MM_SS( worked ) ) )
-                else:
-                    worked = l[0] - last_clock_in
-                    print( "{}\t{}\t{}".format( my_shift.format_HH_MM_SS( last_clock_in ), 
-                                            my_shift.format_HH_MM_SS( l[0] ), 
-                                            my_shift.format_dur_HH_MM_SS( worked ) ) )
-                total_worked += worked
-                last_clock_in = None
+        for seg in self.db.get_day_in_out_segments( self.id, time.time() ):
+            print( "{}\t{}\t{}".format( my_shift.format_HH_MM_SS( seg[0] ), 
+                                        my_shift.format_HH_MM_SS( seg[1] ), 
+                                        my_shift.format_dur_HH_MM_SS( seg[2] ) ) )
+            total_worked += seg[2]
+        #for l in self.db.get_today_clock_data( self.id ):
+        #    if l[1] == my_shift_db.IN and last_clock_in is None:
+        #        last_clock_in = l[0]
+        #    elif l[1] == my_shift_db.OUT and not last_clock_in is None:
+        #        if last_clock_in < today_start:
+        #            worked = l[0] - today_start
+        #            print( "{}\t{}\t{}".format( "", 
+        #                                        my_shift.format_HH_MM_SS( l[0] ), 
+        #                                        my_shift.format_dur_HH_MM_SS( worked ) ) )
+        #        else:
+        #            worked = l[0] - last_clock_in
+        #            print( "{}\t{}\t{}".format( my_shift.format_HH_MM_SS( last_clock_in ), 
+        #                                    my_shift.format_HH_MM_SS( l[0] ), 
+        #                                    my_shift.format_dur_HH_MM_SS( worked ) ) )
+        #        total_worked += worked
+        #        last_clock_in = None
 
-        if not last_clock_in is None:
-            worked = int( time.time() ) - last_clock_in
-            print( "{}\t{}\t{}".format( my_shift.format_HH_MM_SS( last_clock_in ), 
-                                        "", 
-                                        my_shift.format_dur_HH_MM_SS( worked ) ) )
-            total_worked += worked
+        #if not last_clock_in is None:
+        #    worked = int( time.time() ) - last_clock_in
+        #    print( "{}\t{}\t{}".format( my_shift.format_HH_MM_SS( last_clock_in ), 
+        #                                "", 
+        #                                my_shift.format_dur_HH_MM_SS( worked ) ) )
+        #    total_worked += worked
         print( "total worked: \t{}".format( my_shift.format_dur_HH_MM_SS( total_worked ) ) )
 
     def menu_clock_in_out( self ):

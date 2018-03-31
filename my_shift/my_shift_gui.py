@@ -13,10 +13,12 @@ testcases
 
 import tkinter as tk
 import tkinter.ttk as ttk
-from my_shift import my_shift_db, my_shift
+from my_shift import my_shift
 
 class my_shift_wnd (tk.Frame):
     def __init__( self, master=None ):
+        from my_shift_db import my_shift_db
+
         super().__init__(master)
         self.pack()
 
