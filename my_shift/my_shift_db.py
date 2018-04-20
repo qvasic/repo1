@@ -54,14 +54,14 @@ class my_shift_db:
     def clock_in_out( self, id ):
         import time
         curr = self.conn.cursor()
-        today_clock_data = curr.execute( """select time, in_out 
+        last_clock_entry = curr.execute( """select in_out 
                                                 from clock_data 
-                                                where user_id = ? and time >= ? order by time""", 
-                                         ( id, my_shift_db.get_today_start() ) ).fetchall()
-        if len( today_clock_data ) == 0:
+                                                where user_id = ? and time = ( select max(time) from clock_data where user_id = ? )""", 
+                                         ( id, id ) ).fetchall()
+        if len( last_clock_entry ) == 0:
             dir = my_shift_db.IN
         else:
-            dir = my_shift_db.IN if today_clock_data[-1][1] == my_shift_db.OUT else my_shift_db.OUT
+            dir = my_shift_db.IN if last_clock_entry[-1][0] == my_shift_db.OUT else my_shift_db.OUT
         curr.execute( "insert into clock_data ( user_id, time, in_out ) values ( ?, ?, ? )",
                       ( id, int( time.time() ), dir ) )
         self.conn.commit()
@@ -129,6 +129,15 @@ class my_shift_db:
             cur = my_shift_db.get_day_start_end( cur )[0]-1
 
         return list( reversed( days_worked ) )
+
+    def get_prev_week_worked_total( self, id, t ):
+        import time
+
+        cur = t
+        wday = time.localtime( cur ).tm_wday
+        for i in range( wday+1 ):
+            cur = my_shift_db.get_day_start_end( cur )[0]-1
+        return sum( self.get_week_worked( id, cur ) )
 
 def run_tests():
     print( "running unit test cases" )

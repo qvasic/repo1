@@ -15,7 +15,7 @@ class my_shift_wnd (tk.Frame):
     def __init__( self, master=None ):
         from my_shift_db import my_shift_db
 
-        super().__init__(master)
+        tk.Frame.__init__(self, master)
         self.pack()
 
         self.id = 0
@@ -40,17 +40,21 @@ class my_shift_wnd (tk.Frame):
         import time
         clock_data_text = ""
 
+        clock_data_text += "PREV WEEK\ntotal: \t{}\n\n".format( my_shift.format_dur_HH_MM_SS( self.db.get_prev_week_worked_total( self.id, time.time() ) ) )
+
         clock_data_text += "THIS WEEK\nday\tworked\n"
         days = ( 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun' )
         total_worked = 0
         for i, d in enumerate( self.db.get_week_worked( self.id, time.time() ) ):
             clock_data_text += "{}\t{}\n".format( days[i], my_shift.format_dur_HH_MM_SS( d ) )
             total_worked += d
-        clock_data_text += ( "\ntotal: \t{}\n".format( my_shift.format_dur_HH_MM_SS( total_worked ) ) )
+        clock_data_text += ( "\ntotal: \t{}\n\n".format( my_shift.format_dur_HH_MM_SS( total_worked ) ) )
 
 
         total_worked = 0
-        clock_data_text += "\nTODAY\nin\tout\tworked\n"
+        clock_data_text += "TODAY\nin\tout\tworked\n"
+        
+        seg = ( None, 1, None )
         for seg in self.db.get_day_in_out_segments( self.id, time.time() ):
             clock_data_text += ( "{}\t{}\t{}\n".format( my_shift.format_HH_MM_SS( seg[0] ), 
                                                         my_shift.format_HH_MM_SS( seg[1] ), 

@@ -24,6 +24,15 @@ def get_day_secs( secs_from_epoch ):
              time_struct.tm_min*60 +
              time_struct.tm_sec )
 
+def iter_days( timestamp_start, timestamp_end ):
+    curtime = timestamp_start
+    while True:
+        day_start_end = get_day( curtime )
+        yield day_start_end
+        curtime = day_start_end[1]+1
+        if timestamp_end < curtime:
+            break
+    
 
 def get_day( t, day_start_hour = 3 ):
     """Returns tuple with first and one-after-last seconds of the route working day, 
@@ -189,13 +198,8 @@ class ewaystat:
         earliest, latest = curr.execute( "select min(time), max(time) from vehicle_pos" ).fetchone()
         print( "earliest, latest timestamps are: {}, {}".format( earliest, latest ) )
 
-        curtime = earliest
-        while True:
-            day_start_end = get_day( curtime )
-            self.process_day( day_start_end )
-            curtime = day_start_end[1]+1
-            if latest < curtime:
-                break
+        for day in iter_days( earliest, latest ):
+            self.process_day( day )
 
 def self_test():
     print( "some self-testing before it all begins..." )
