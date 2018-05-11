@@ -1,0 +1,7 @@
+#ifndef CMAKETUTORIALCONFIG_H_IN
+#define CMAKETUTORIALCONFIG_H_IN
+
+#define cmake_tutorial_VERMAJ @cmake_tutorial_VERMAJ@
+#define cmake_tutorial_VERMIN @cmake_tutorial_VERMIN@
+
+#endif // CMAKETUTORIALCONFIG_H_IN
