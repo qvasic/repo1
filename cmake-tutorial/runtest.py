@@ -7,8 +7,8 @@ convenience utility for running tests in cmake
 2nd arg - file with data to be sent into stdin
 3rd arg - expected output from stdout
 
-return 0 if output is equal to expected
-return 1 if not
+returns 0 if output is equal to expected
+returns 1 if not
 """
 
 def run_test( prog, inp, exp ):
@@ -25,8 +25,12 @@ def main():
         print( __doc__ )
         sys.exit( 1 )
     else:
-        ret = run_test( sys.argv[1], sys.argv[2], sys.argv[3] )
-        sys.exit( 0 if ret else 1 )
+        if run_test( sys.argv[1], sys.argv[2], sys.argv[3] ):
+            print( __file__, ": test passed" )
+            sys.exit( 0 )
+        else:
+            print( __file__, ": test failed" )
+            sys.exit( 1 )
 
 if __name__ == '__main__':
     main()
