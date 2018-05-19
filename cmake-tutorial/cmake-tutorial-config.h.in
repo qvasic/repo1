@@ -3,5 +3,6 @@
 
 #define cmake_tutorial_VERMAJ @cmake_tutorial_VERMAJ@
 #define cmake_tutorial_VERMIN @cmake_tutorial_VERMIN@
+#cmakedefine USE_METH
 
 #endif // CMAKETUTORIALCONFIG_H_IN
