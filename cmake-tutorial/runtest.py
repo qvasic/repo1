@@ -15,8 +15,21 @@ def run_test( prog, inp, exp ):
     """run program prog, feed file inp into its stdin, compare its stdout with file exp"""
     import subprocess
 
-    actual = subprocess.check_output( [ prog, ], stdin=open( inp, 'rb' ) )
-    return actual == open( exp, 'rb' ).read()
+    actual = subprocess.check_output( [ prog, ], stdin=open( inp, 'r' ) ).decode().splitlines()
+    expect = open( exp, 'r' ).read().splitlines()
+
+    if len( actual ) != len( expect ):
+        print( 'line count differs' )
+        return False
+    else:
+        for line_num, ( actual_line, expect_line ) in enumerate( zip( actual, expect ) ):
+            if actual_line != expect_line:
+                print( 'lines number {} differ, actual: {}, expected: {}'.format(
+                                                             line_num+1, repr(actual_line),
+                                                             repr(expect_line) ) )
+                return False
+        else:
+            return True
 
 def main():
     import sys

@@ -4,5 +4,5 @@
 
 void do_meth()
 {
-    printf( "doing meth\n" );
+    printf( "doing meth today!! =)\n" );
 }

@@ -4,16 +4,7 @@ project(cmake-tutorial)
 
 set (cmake_tutorial_VERMAJ 1)
 set (cmake_tutorial_VERMIN 666)
-
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-
-message( "PROJECT_NAME=${PROJECT_NAME}" )
-message( "PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}" )
-message( "PROJECT_BINARY_DIR=${PROJECT_BINARY_DIR}" )
-message( "CMAKE_SOURCE_DIR=${CMAKE_SOURCE_DIR}" )
-message( "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}" )
-message( "CMAKE_COMMAND=${CMAKE_COMMAND}" )
-message( "CMAKE_EXECUTABLE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}")
+option( USE_METH "do meth, DO FUCKING METH!!" ON )
 
 configure_file(
         "${PROJECT_SOURCE_DIR}/cmake-tutorial-config.h.in"
@@ -21,20 +12,39 @@ configure_file(
     )
 
 include_directories( "${PROJECT_BINARY_DIR}" )
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-add_subdirectory( my_meth_lab )
-include_directories( "${PROJECT_SOURCE_DIR}/my_meth_lab" )
+message( "whole project CMakeLists.txt" )
+message( "PROJECT_NAME=${PROJECT_NAME}" )
+message( "PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}" )
+message( "PROJECT_BINARY_DIR=${PROJECT_BINARY_DIR}" )
+message( "CMAKE_SOURCE_DIR=${CMAKE_SOURCE_DIR}" )
+message( "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}" )
+message( "CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" )
+message( "CMAKE_CURRENT_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}" )
+message( "CMAKE_COMMAND=${CMAKE_COMMAND}" )
+message( "CMAKE_EXECUTABLE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}")
+
+if( USE_METH )
+    add_subdirectory( my_meth_lab )
+    include_directories( "${PROJECT_SOURCE_DIR}/my_meth_lab" )
+endif()
 
 add_executable(${PROJECT_NAME} "main.cpp")
-target_link_libraries( ${PROJECT_NAME} my_meth_lab )
+
+if( USE_METH )
+    target_link_libraries( ${PROJECT_NAME} my_meth_lab )
+endif()
 
 find_package( PythonInterp )
+
+file( COPY runtest.py test-expect test-input DESTINATION . )
 
 if( PYTHONINTERP_FOUND )
     message( "python ${PYTHON_VERSION_STRING} found, adding unit tests" )
     enable_testing()
-    add_test( NAME test1 COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/runtest.py
-              ./${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/test-input ${PROJECT_SOURCE_DIR}/test-expect-winle )
+    add_test( NAME test1 COMMAND ${PYTHON_EXECUTABLE} runtest.py
+              ./${PROJECT_NAME} test-input test-expect )
 else()
     message( "PYTHON INTERPRETER COULD NOT BE FOUND, TESTS CANNOT BE RUN" )
 endif()
