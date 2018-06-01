@@ -13,6 +13,7 @@ message( "PROJECT_BINARY_DIR=${PROJECT_BINARY_DIR}" )
 message( "CMAKE_SOURCE_DIR=${CMAKE_SOURCE_DIR}" )
 message( "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}" )
 message( "CMAKE_COMMAND=${CMAKE_COMMAND}" )
+message( "CMAKE_EXECUTABLE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}")
 
 configure_file(
         "${PROJECT_SOURCE_DIR}/cmake-tutorial-config.h.in"
@@ -33,7 +34,7 @@ if( PYTHONINTERP_FOUND )
     message( "python ${PYTHON_VERSION_STRING} found, adding unit tests" )
     enable_testing()
     add_test( NAME test1 COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/runtest.py
-              ./${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/test-input ${PROJECT_SOURCE_DIR}/test-expect )
+              ./${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/test-input ${PROJECT_SOURCE_DIR}/test-expect-winle )
 else()
     message( "PYTHON INTERPRETER COULD NOT BE FOUND, TESTS CANNOT BE RUN" )
 endif()
