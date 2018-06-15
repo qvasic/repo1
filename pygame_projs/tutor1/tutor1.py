@@ -1,5 +1,16 @@
 '''pygame tutorial excercise'''
 
+ship_kruger = (
+    ( (-1, -6), (1, -6) ),
+    ( (-1, -20), (-2, -6), (-4, -3), (-7, 0 ), (-2, 10),
+        (2, 10), (7, 0), (4, -3), (2, -6), (1, -20), (-1, -20) ),
+    ( (-6, 1), (-18, 6), (-17, 14), (-16, 8), (-10, 7), (-4, 8) ),
+    ( (4, 8), (10, 7), (16, 8), (17, 14), (18, 6), (6, 1) ),
+
+    ( (-7, 0), (-7, -5), (-6, -5), (-6, -1) ),
+    ( (7, 0), (7, -5), (6, -5), (6, -1) ),
+)
+
 def rotate_polyline( polyline, vec ):
     import pygame.math
     angle = -pygame.math.Vector2( vec ).angle_to( (0, -1) )
@@ -73,7 +84,7 @@ def main():
     curpos = [ c//2 for c in size ]
     last_nonzero_vector = [ 0, -1 ]
     move_scale = 5
-    ship_polyline = ( (-2, 2), (0, -5), (2, 2 ) )
+    ship_polylines = ship_kruger # ( (-2, 2), (0, -5), (2, 2 ) )
 
     projs = ProjectilesList( 10, size )
 
@@ -114,9 +125,11 @@ def main():
                                       start,
                                       tuple( s+r*scale for s, r in zip( start, curvec ) ),
                                       2 )
-            cur_ship_polyline = [ (p[0]+curpos[0], p[1]+curpos[1])
-                                  for p in rotate_polyline( ship_polyline, last_nonzero_vector ) ]
-            pygame.draw.lines( screen, foreground, False, cur_ship_polyline, 2 )
+
+            for pl in ship_polylines:
+                rotated_pl = [ (p[0]+curpos[0], p[1]+curpos[1])
+                                      for p in rotate_polyline( pl, last_nonzero_vector ) ]
+                pygame.draw.lines( screen, foreground, False, rotated_pl, 1 )
 
 
             for p in projs:
