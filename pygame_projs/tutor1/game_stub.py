@@ -48,7 +48,7 @@ class BouncingBallWithLives( BouncingBall ):
     def move_and_draw( self, time, surf ) -> bool:
         import pygame
         BouncingBall.move_and_draw( self, time, surf )
-        pygame.draw.circle( surf, self.color, tuple( map( int, self.coords ) ), self.lives )
+        pygame.draw.circle( surf, self.color, tuple( map( int, self.coords ) ), self.lives if self.lives>0 else 1 )
         return self.lives > 0
 
 class BallSpawner( game_abstracts.GameObj ):
