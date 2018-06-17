@@ -18,7 +18,7 @@ int main()
     }
     else
     {
-        sockaddr_in addr = { AF_INET, default_port, INADDR_ANY };
+        sockaddr_in addr = { AF_INET, htons( default_port ), INADDR_ANY };
         //inet_aton( "127.0.0.1", &addr.sin_addr );
 
         if( bind( tcp_socket, reinterpret_cast<sockaddr*>(&addr), sizeof( addr ) ) == -1 )
@@ -35,7 +35,7 @@ int main()
             }
             else
             {
-                std::cout << "socket successfully opened, bound to port " << addr.sin_port
+                std::cout << "socket successfully opened, bound to port " << ntohs( addr.sin_port )
                           << " and set to listen" << std::endl;
 
                 while( ret == 0 )
@@ -54,7 +54,7 @@ int main()
                     }
                     else
                     {
-                        std::cout << "connected with " << peer.sin_addr << '/' << peer.sin_port << std::endl;
+                        std::cout << "connected with " << peer.sin_addr << '/' << ntohs( peer.sin_port ) << std::endl;
                         char c;
                         while( read( connected_socket, &c, 1 ) )
                         {

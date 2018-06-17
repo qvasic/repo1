@@ -13,8 +13,6 @@ inline constexpr uint32_t make_ip_addr( uint8_t B1, uint8_t B2, uint8_t B3, uint
 
 inline std::ostream &operator<<( std::ostream &os, const in_addr &a )
 {
-    /*os << ( a.s_addr&0xff )     << '.' << ( a.s_addr>>8&0xff ) << '.'
-       << ( a.s_addr>>16&0xff ) << '.' << ( a.s_addr>>24 );*/
     os << inet_ntoa( a );
     return os;
 }
