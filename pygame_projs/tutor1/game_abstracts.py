@@ -94,6 +94,16 @@ class GameObj:
         """
         return True
 
+class PlayerInput:
+    def get_direction( self ) -> tuple:
+        pass
+
+    def get_button_a( self ) -> bool:
+        pass
+
+    def get_button_b( self ) -> bool:
+        pass
+
 if __name__ == "__main__":
     print( __file__, __doc__,
            "this is supposed to be used as a importable module", sep="\n", end="" )
