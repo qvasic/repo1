@@ -6,11 +6,15 @@ def main():
     import socket
     import time
 
-    s = socket.create_connection( ( "127.0.0.1", 10443 ) )
-    f = s.makefile( 'w' )
-    for i in range( 20 ):
-        print( i, file=f, flush=True )
-        time.sleep( 0.3 )
+    s = socket.create_connection( ( "localhost", 10443 ) )
+    #f = s.makefile( 'w' )
+    #for i in range( 20 ):
+    #    print( i, file=f, flush=True )
+    #    time.sleep( 0.3 )
+
+    print( "reading from server" )
+    for l in s.makefile( 'r' ):
+        print( l, end="" )
 
 
 if __name__ == "__main__":

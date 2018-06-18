@@ -120,7 +120,7 @@ class AutocanonProjectile( game_abstracts.GameObj ):
 
         for l in self.shape:
             l = game_utils.position_polyline( l, self.vector, self.coords )
-            pygame.draw.lines( surf, self.color, False, l, 1 )
+            pygame.draw.lines( surf, self.color, False, l, 2 )
 
 
         return True
