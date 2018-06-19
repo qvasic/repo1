@@ -3,6 +3,7 @@ project( tcp_srv_clnt )
 
 configure_file( clnt.py clnt.py COPYONLY )
 configure_file( srv.py srv.py COPYONLY )
+configure_file( nmea.py nmea.py COPYONLY )
 
 set( CMAKE_CXX_FLAGS "--std=c++11" )
 add_executable( srv srv.cpp common.h )
