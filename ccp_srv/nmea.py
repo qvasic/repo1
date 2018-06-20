@@ -20,13 +20,16 @@ def checksum( nmea_sentence ):
         hex_digits = '0'+hex_digits
     return hex_digits.upper()
 
-def coord_to_nmea( coord, hemispheres ):
-    import math
+def coord_to_nmea( coord, hemispheres, deg_digits=2 ):
     hemisphere = hemispheres[0] if coord >= 0 else hemispheres[1]
     coord = abs( coord )
-    degrees = math.floor( coord )
-    minutes = round( (coord-degrees) / (1/60), 2 )
-    return "{deg:03}{min},{hemi}".format( deg=degrees, min=minutes, hemi=hemisphere )
+    degrees = int( coord )
+    minutes = (coord-degrees) / (1/60)
+    minutes_after_decimal = minutes - int( minutes )
+    minutes_after_decimal = "{:.4f}".format( minutes_after_decimal )[1:]
+    minutes = int(minutes)
+    format_str = ( "{deg:02}{min:02}{mind},{hemi}" if deg_digits == 2 else "{deg:03}{min:02}{mind},{hemi}" )
+    return format_str.format( deg=degrees, min=minutes, mind=minutes_after_decimal, hemi=hemisphere )
 
 def lat_to_nmea( lat ):
     """Takes latitude in form of double, positive one means North hemisphere, negative - South.
@@ -36,7 +39,7 @@ def lat_to_nmea( lat ):
 def lng_to_nmea( lng ):
     """Takes longitude in form of double, positive one means East hemisphere, negative - West.
     Returns string in NMEA format - degrees, minutes and hemisphere letter."""
-    return coord_to_nmea( lng, "EW" )
+    return coord_to_nmea( lng, "EW", 3 )
 
 def gpgll( lat, lng ):
     """Takes geographical coordinates in form of two doubles - latitude and longitude.
@@ -64,24 +67,24 @@ def selftest():
     failed_cases = 0
 
     latitude_cases = (
-        ( 0, "00.0,N" ),
-        ( 30, "300.0,N" ),
-        ( 30.211, "3012.66,N" ),
-        ( -30.211, "3012.66,S" ),
+        ( 0, "0000.0000,N" ),
+        ( 30, "3000.0000,N" ),
+        ( 30.211, "3012.6600,N" ),
+        ( -30.211, "3012.6600,S" ),
     )
     failed_cases += test_one( lat_to_nmea, latitude_cases )
 
     longitude_cases = (
-        ( 0, "00.0,E" ),
-        ( 30, "300.0,E" ),
-        ( 30.211, "3012.66,E" ),
-        ( -30.211, "3012.66,W" ),
-        ( -89, "890.0,W" ),
+        ( 0, "00000.0000,E" ),
+        ( 30, "03000.0000,E" ),
+        ( 30.211, "03012.6600,E" ),
+        ( -30.211, "03012.6600,W" ),
+        ( -89, "08900.0000,W" ),
     )
     failed_cases += test_one( lng_to_nmea, longitude_cases )
 
     gpgll_cases = (
-        ( (0, 0), "$GPGLL,00.0,N,00.0,E*5B" ),
+        ( (0, 0), "$GPGLL,0000.0000,N,00000.0000,E*6B" ),
     )
 
     failed_cases += test_one( gpgll, gpgll_cases )
