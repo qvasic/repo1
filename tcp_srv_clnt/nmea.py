@@ -1,4 +1,12 @@
-print( "FORMAT OF COORDINATES STRINGS STILL UNVERIFIED!!!!\a" )
+"""FORMAT OF COORDINATES STRINGS STILL UNVERIFIED!!!!
+consult http://lefebure.com/articles/nmea-gga/ and http://aprs.gids.nl/nmea/
+https://docs.python.org/3.4/library/string.html#grammar-token-width
+also implement
+GPGGA Global Positioning System Fix Data
+GPGSA GPS DOP and active satellites
+GPRMC Recommended minimum specific GPS/Transit data
+\a"""
+print( __doc__ )
 
 def checksum( nmea_sentence ):
     """Calculates proper NMEA checksum.
@@ -18,7 +26,7 @@ def coord_to_nmea( coord, hemispheres ):
     coord = abs( coord )
     degrees = math.floor( coord )
     minutes = round( (coord-degrees) / (1/60), 2 )
-    return "{deg}{min},{hemi}".format( deg=degrees, min=minutes, hemi=hemisphere )
+    return "{deg:03}{min},{hemi}".format( deg=degrees, min=minutes, hemi=hemisphere )
 
 def lat_to_nmea( lat ):
     """Takes latitude in form of double, positive one means North hemisphere, negative - South.
