@@ -6,7 +6,7 @@ def main():
     import socket
     import time
 
-    s = socket.create_connection( ( "192.168.110.62", 2222 ) )
+    s = socket.create_connection( ( "localhost", 2222 ) )
     #f = s.makefile( 'w' )
     #for i in range( 20 ):
     #    print( i, file=f, flush=True )

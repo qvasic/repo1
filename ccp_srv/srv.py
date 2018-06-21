@@ -35,27 +35,29 @@ class CCPRequestHandler( socketserver.StreamRequestHandler ):
     def handle( self ):
         try:
             import time
-            print( "connection from {}".format( self.client_address ) )
-            print( "sending lines with frequency {}".format( FREQ ) )
+            print( "NEW connection from {}".format( self.client_address ) )
             lines_sent = 0
 
             while True:
                 with cur_line_lock:
                     self.wfile.write( cur_line )
                 lines_sent += 1
-                print( "\r{} lines sent".format( lines_sent ), end="" )
+                if lines_sent%100 == 1:
+                    print( "ACTIVE connection from {}, {} lines sent".format( self.client_address,
+                                                                              lines_sent ) )
                 time.sleep( 1/FREQ )
         except KeyboardInterrupt:
-            print( "user abort" )
+            print( "USER ABORT" )
             self.server.shutdown()
         except Exception as e:
-            print( "something went wrong, ending this connection, exception: {}".format( e ) )
+            print( "ERROR connection {}, exception: {}".format( self.client_address, e ) )
+
 
 def main():
     file_reader_thread = threading.Thread( target=file_reader, daemon=True )
     file_reader_thread.start()
 
-    srv = socketserver.TCPServer( ( "", PORT ), CCPRequestHandler )
+    srv = socketserver.ThreadingTCPServer( ( "", PORT ), CCPRequestHandler )
     print( "opened server on port {}, serving forever".format( PORT ) )
     srv.serve_forever()
     srv.server_close()
