@@ -6,8 +6,55 @@ PORT = 2222
 FILE = "gps.log"
 FREQ = 2
 
-cur_line = b""
-cur_line_lock = threading.Lock()
+class SharedData:
+    """Shared data accessor class. Synchronizes gets and sets.
+    Data should be immutable object, use set( ) to set new val, get( ) to get current val.
+    """
+
+    def __init__( self, init_val=None ):
+        self.lock = threading.Lock( )
+        self.data = init_val
+
+    def get( self ):
+        with self.lock:
+            ret = self.data
+        return ret
+
+    def set( self, new_val ):
+        with self.lock:
+            self.data = new_val
+
+class SharedPrinter:
+    """Chared printer, synchronizes print operations."""
+
+    def __init__( self ):
+        self.lock = threading.Lock( )
+
+    def print( self, to_print ):
+        with self.lock:
+            print( to_print )
+
+def iter_by_n( iterable, N ):
+    """Iterates by series of N elements.
+    For instance given seqence [ 1, 2, 3, 4, 5 ], first iteration will give you [1, 2],
+    second [3, 4], and third and final - [5].
+    """
+    n=0
+    for i in iterable:
+        if n == 0:
+            curr_iter = []
+        curr_iter.append( i )
+        n+=1
+        if n == N:
+            yield curr_iter
+            n=0
+
+    if n != 0:
+        yield curr_iter
+
+
+shared_gps_data = SharedData( b"" )
+shared_printer = SharedPrinter( )
 
 def file_reader():
     import time
@@ -19,38 +66,36 @@ def file_reader():
     
     while True:
         nmea_sent = ( nmea.gpgll( lat, lng ) + "\n" ).encode( "utf-8" )
-        with cur_line_lock:
-            cur_line = nmea_sent
+        shared_gps_data.set( nmea_sent )
         lng += 0.1
         if lng > 180:
             lng -= 360
         time.sleep( 1/FREQ )
         #with open( FILE, "rb" ) as f:
         #    for l in f:
-        #        with cur_line_lock:
-        #            cur_line = l
+        #        shared_gps_data.set( l )
         #        time.sleep( 1/FREQ )
 
 class CCPRequestHandler( socketserver.StreamRequestHandler ):
     def handle( self ):
         try:
             import time
-            print( "NEW connection from {}".format( self.client_address ) )
+            shared_printer.print( "NEW connection from {}".format( self.client_address ) )
             lines_sent = 0
 
             while True:
-                with cur_line_lock:
-                    self.wfile.write( cur_line )
+                self.wfile.write( shared_gps_data.get( ) )
                 lines_sent += 1
-                if lines_sent%100 == 1:
-                    print( "ACTIVE connection from {}, {} lines sent".format( self.client_address,
-                                                                              lines_sent ) )
+                if lines_sent%100 == 0:
+                    shared_printer.print( "ACTIVE connection from {}, {} lines sent"
+                                                        .format( self.client_address, lines_sent ) )
                 time.sleep( 1/FREQ )
         except KeyboardInterrupt:
-            print( "USER ABORT" )
+            shared_printer.print( "USER ABORT" )
             self.server.shutdown()
         except Exception as e:
-            print( "ERROR connection {}, exception: {}".format( self.client_address, e ) )
+            shared_printer.print( "ERROR connection {}, exception: {}"
+                                                                .format( self.client_address, e ) )
 
 
 def main():
@@ -58,7 +103,7 @@ def main():
     file_reader_thread.start()
 
     srv = socketserver.ThreadingTCPServer( ( "", PORT ), CCPRequestHandler )
-    print( "opened server on port {}, serving forever".format( PORT ) )
+    shared_printer.print( "opened server on port {}, serving forever".format( PORT ) )
     srv.serve_forever()
     srv.server_close()
 
