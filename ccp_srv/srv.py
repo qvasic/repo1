@@ -36,7 +36,7 @@ class SharedPrinter:
 
 def iter_by_n( iterable, N ):
     """Iterates by series of N elements.
-    For instance given seqence [ 1, 2, 3, 4, 5 ], first iteration will give you [1, 2],
+    For instance given seqence [ 1, 2, 3, 4, 5 ] with N=2, first iteration will give you [1, 2],
     second [3, 4], and third and final - [5].
     """
     n=0
@@ -75,18 +75,10 @@ def file_reader():
         """
         print( "ENGINE going through file {}".format( FILE ) )
         with open( FILE, "rb" ) as f:
-            line = 0
-            for l in f:
-                if line == 0:
-                    cur_entry = b""
-                    
-                cur_entry += l
-                line += 1
-
-                if line == 3:
-                    shared_gps_data.set( cur_entry )
-                    time.sleep( 1/FREQ )
-                    line = 0
+            for e in iter_by_n( f, 3 ):
+                gps_data = b"".join( e )
+                shared_gps_data.set( gps_data );
+                time.sleep( 1/FREQ )
 
 class CCPRequestHandler( socketserver.StreamRequestHandler ):
     def handle( self ):
