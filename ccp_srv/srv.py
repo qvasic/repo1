@@ -3,7 +3,7 @@ import socketserver
 import threading
 
 PORT = 2222
-FILE = "gps.log"
+FILE = None
 FREQ = 1
 
 class SharedData:
@@ -25,7 +25,7 @@ class SharedData:
             self.data = new_val
 
 class SharedPrinter:
-    """Chared printer, synchronizes print operations."""
+    """Shared printer, synchronizes print operations."""
 
     def __init__( self ):
         self.lock = threading.Lock( )
@@ -60,25 +60,37 @@ def file_reader():
     import time
     import nmea
     
-    lat, lng = 0, 0
-    
-    while True:
-        """
-        nmea_sents = "{gpgga}\n{gpgsa}\n{gprmc}\n".format( gpgga=nmea.gpgga( lat, lng ), 
-                                                           gpgsa=nmea.gpgsa( ), 
-                                                           gprmc=nmea.gprmc( lat, lng ) ).encode( "utf-8" )
-        shared_gps_data.set( nmea_sents )
-        lng += 0.1
-        if lng > 180:
-            lng -= 360
-        time.sleep( 1/FREQ )
-        """
-        print( "ENGINE going through file {}".format( FILE ) )
-        with open( FILE, "rb" ) as f:
-            for e in iter_by_n( f, 3 ):
-                gps_data = b"".join( e )
-                shared_gps_data.set( gps_data );
-                time.sleep( 1/FREQ )
+    if FILE:
+        while True:
+            print( "ENGINE going through file {}".format( FILE ) )
+            with open( FILE, "rb" ) as f:
+                for e in iter_by_n( f, 3 ):
+                    gps_data = b"".join( e )
+                    shared_gps_data.set( gps_data );
+                    time.sleep( 1/FREQ )
+    else:
+        print( "ENGINE no file given, simulating Earth circumvention" )
+
+        import earth_walk
+
+        speed_m_s = 1000
+        speed_deg = earth_walk.Earth_dist_to_deg( speed_m_s )
+
+        lat, lng = 0, 0
+        bearing = 30
+
+        while True:
+            prev_lat, prev_lng = lat, lng
+            lat, lng = earth_walk.step( lat, lng, bearing, speed_deg/FREQ )
+            bearing = ( earth_walk.dist_and_brng( lat, lng, prev_lat, prev_lng )[1]+180 ) % 360
+
+            nmea_sents = "{gpgga}\n{gpgsa}\n{gprmc}\n".format( gpgga=nmea.gpgga( lat, lng ),
+                                                               gpgsa=nmea.gpgsa( ),
+                                                               gprmc=nmea.gprmc( lat, lng,
+                                               nmea.meters_to_knots( 3600*speed_m_s ), bearing )
+                                                             ).encode( "utf-8" )
+            shared_gps_data.set( nmea_sents )
+            time.sleep( 1/FREQ )
 
 class CCPRequestHandler( socketserver.StreamRequestHandler ):
     def handle( self ):

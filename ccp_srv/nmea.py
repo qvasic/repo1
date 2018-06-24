@@ -22,9 +22,12 @@ def finalize_sentence( sentence ):
                                             checksum=checksum( sentence ) )
 
 def utc_time_str( ):
-    """Returns time str for current UTC time: HHMMSS."""
+    """Returns time str for current UTC time: HHMMSS.SS"""
     import time
-    return time.strftime( "%H%M%S", time.gmtime( ) )
+    epoch = time.time()
+    ms = epoch-int(epoch)
+    ms_str = "{:.2f}".format( ms )
+    return time.strftime( "%H%M%S", time.gmtime( ) ) + ms_str[1:]
 
 def date_str( ):
     """Returns date str: DDMMYY."""
@@ -76,12 +79,16 @@ def gpgsa( ):
     """Faked (simulated) GPGSA sentence - GPS DOP and active satellites."""
     return "$GPGSA,A,3,01,02,03,04,05,06,07,08,09,10,11,12,1.0,1.0,1.0*30"
 
-def gprmc( lat, lng ):
+def meters_to_knots( m ):
+    """Converts meters to knots."""
+    return m/1852
+
+def gprmc( lat, lng, speed=0.0, course=0.0 ):
     """Returns faked (simulated) GPRMC sentence - Recommended minimum specific GPS/Transit data.
     Most of its data is faked or, if you will, simulated. :)"""
-    gprmc_sentence = "GPRMC,{time},A,{lat},{lng},{speed},{course},{date},000.0,W".format(
+    gprmc_sentence = "GPRMC,{time},A,{lat},{lng},{speed:.1f},{course:.1f},{date},000.0,W".format(
         time=utc_time_str( ), lat=lat_to_nmea( lat ), lng=lng_to_nmea( lng ),
-        speed = 10.0, course=0.0,
+        speed = speed, course=course,
         date=date_str( ) )
     return finalize_sentence( gprmc_sentence )
 

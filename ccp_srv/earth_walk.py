@@ -123,19 +123,7 @@ def dist_and_brng( lat1, lng1, lat2, lng2 ):
 
     return 90-r_dist, 180-r_brng
 
-
 ################################################################################
-
-def walk_shit():
-    cp = (0,0)
-    cb = 45
-    steps = 3600000
-
-    for i in range( steps ):
-        pp = cp
-        cp = step( *cp, cb, 360/steps )
-        cb = ( dist_and_brng( *cp, *pp )[1]+180 ) % 360
-        print( "{:.10f} {:.10f} {:.10f}".format( *cp, cb ) )
 
 def selftest():
     print( __file__, __doc__, "doing self-testing", sep="\n" )
@@ -193,6 +181,8 @@ def selftest():
         ( step, ( 0, 0, 0, 45 ), ( 45, 0 ), float_seq_cmp ),
         ( step, ( 0, 45, 0, 10 ), ( 10, 45 ), float_seq_cmp ),
         ( step, ( 0, 45, 270, 10 ), ( 0, 35 ), float_seq_cmp ),
+        ( step, ( 0, 0, 30, 90 ), ( 60, 90 ), float_seq_cmp ),
+        ( step, ( 30, -90, 90, 90 ), ( 0, 0 ), float_seq_cmp ),
 
         ( dist_and_brng, ( 0, 0, 0, 45 ), ( 45, 90 ), float_seq_cmp ),
         ( dist_and_brng, ( 0, 0, 0, -5 ), ( 5, 270 ), float_seq_cmp ),
@@ -217,8 +207,6 @@ def selftest():
         print( "\nselftest: THERE ARE {} FAILED CASES\a\n".format( failed ) )
     else:
         print( "\nselftest: ok\n" )
-
-    walk_shit()
 
 if __name__ == "__main__":
     selftest()
