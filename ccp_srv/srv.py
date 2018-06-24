@@ -4,7 +4,7 @@ import threading
 
 PORT = 2222
 FILE = "gps.log"
-FREQ = 2
+FREQ = 1
 
 class SharedData:
     """Shared data accessor class. Synchronizes gets and sets.
@@ -36,7 +36,7 @@ class SharedPrinter:
 
 def iter_by_n( iterable, N ):
     """Iterates by series of N elements.
-    For instance given seqence [ 1, 2, 3, 4, 5 ], first iteration will give you [1, 2],
+    For instance given seqence [ 1, 2, 3, 4, 5 ] with N=2, first iteration will give you [1, 2],
     second [3, 4], and third and final - [5].
     """
     n=0
@@ -60,21 +60,25 @@ def file_reader():
     import time
     import nmea
     
-    global cur_line
-    
     lat, lng = 0, 0
     
     while True:
-        nmea_sent = ( nmea.gpgll( lat, lng ) + "\n" ).encode( "utf-8" )
-        shared_gps_data.set( nmea_sent )
+        """
+        nmea_sents = "{gpgga}\n{gpgsa}\n{gprmc}\n".format( gpgga=nmea.gpgga( lat, lng ), 
+                                                           gpgsa=nmea.gpgsa( ), 
+                                                           gprmc=nmea.gprmc( lat, lng ) ).encode( "utf-8" )
+        shared_gps_data.set( nmea_sents )
         lng += 0.1
         if lng > 180:
             lng -= 360
         time.sleep( 1/FREQ )
-        #with open( FILE, "rb" ) as f:
-        #    for l in f:
-        #        shared_gps_data.set( l )
-        #        time.sleep( 1/FREQ )
+        """
+        print( "ENGINE going through file {}".format( FILE ) )
+        with open( FILE, "rb" ) as f:
+            for e in iter_by_n( f, 3 ):
+                gps_data = b"".join( e )
+                shared_gps_data.set( gps_data );
+                time.sleep( 1/FREQ )
 
 class CCPRequestHandler( socketserver.StreamRequestHandler ):
     def handle( self ):
@@ -87,24 +91,29 @@ class CCPRequestHandler( socketserver.StreamRequestHandler ):
                 self.wfile.write( shared_gps_data.get( ) )
                 lines_sent += 1
                 if lines_sent%100 == 0:
-                    shared_printer.print( "ACTIVE connection from {}, {} lines sent"
+                    shared_printer.print( "ACTIVE connection from {}, {} entries sent"
                                                         .format( self.client_address, lines_sent ) )
                 time.sleep( 1/FREQ )
-        except KeyboardInterrupt:
-            shared_printer.print( "USER ABORT" )
-            self.server.shutdown()
         except Exception as e:
-            shared_printer.print( "ERROR connection {}, exception: {}"
+            shared_printer.print( "ERROR connection from {}, exception: {}"
                                                                 .format( self.client_address, e ) )
 
-
 def main():
+    import sys
+    
+    if len( sys.argv ) > 1:
+        global FILE
+        FILE = sys.argv[1]
+
     file_reader_thread = threading.Thread( target=file_reader, daemon=True )
     file_reader_thread.start()
 
     srv = socketserver.ThreadingTCPServer( ( "", PORT ), CCPRequestHandler )
-    shared_printer.print( "opened server on port {}, serving forever".format( PORT ) )
-    srv.serve_forever()
+    print( "opened server on port {}, serving forever".format( PORT ) )
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        print( "USER ABORT" )
     srv.server_close()
 
 if __name__ == "__main__":
