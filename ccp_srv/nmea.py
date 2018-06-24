@@ -85,50 +85,34 @@ def gprmc( lat, lng ):
         date=date_str( ) )
     return finalize_sentence( gprmc_sentence )
 
-def test_one( func, cases ):
-    failed = 0
-    for param, expected in cases:
-        if type( param ) is tuple:
-            actual = func( *param )
-        else:
-            actual = func( param )
-        if actual != expected:
-            print( "{f}( {p} ) retuned {a}, while {e} was expected".format(
-                               f=func.__name__, p=param, a=actual, e=expected ) )
-            failed += 1
-    return failed
-
 def selftest():
+    from testing import test_returns
+
+    print( __file__, __doc__, "doing self-testing", sep="\n" )
+
     failed_cases = 0
 
-    latitude_cases = (
-        ( 0, "0000.0000,N" ),
-        ( 30, "3000.0000,N" ),
-        ( 30.211, "3012.6600,N" ),
-        ( -30.211, "3012.6600,S" ),
-    )
-    failed_cases += test_one( lat_to_nmea, latitude_cases )
+    test_cases = (
+        ( lat_to_nmea, 0, "0000.0000,N" ),
+        ( lat_to_nmea, 30, "3000.0000,N" ),
+        ( lat_to_nmea, 30.211, "3012.6600,N" ),
+        ( lat_to_nmea, -30.211, "3012.6600,S" ),
 
-    longitude_cases = (
-        ( 0, "00000.0000,E" ),
-        ( 30, "03000.0000,E" ),
-        ( 30.211, "03012.6600,E" ),
-        ( -30.211, "03012.6600,W" ),
-        ( -89, "08900.0000,W" ),
-    )
-    failed_cases += test_one( lng_to_nmea, longitude_cases )
+        ( lng_to_nmea, 0, "00000.0000,E" ),
+        ( lng_to_nmea, 30, "03000.0000,E" ),
+        ( lng_to_nmea, 30.211, "03012.6600,E" ),
+        ( lng_to_nmea, -30.211, "03012.6600,W" ),
+        ( lng_to_nmea, -89, "08900.0000,W" ),
 
-    gpgll_cases = (
-        ( (0, 0), "$GPGLL,0000.0000,N,00000.0000,E*6B" ),
+        ( gpgll, (0, 0), "$GPGLL,0000.0000,N,00000.0000,E*6B" ),
     )
 
-    failed_cases += test_one( gpgll, gpgll_cases )
+    failed_cases += test_returns( test_cases )
 
     if failed_cases:
         print( "selftest: THERE ARE FAILED CASES\a" )
     else:
         print( "selftest: ok" )
-
 
 if __name__ == "__main__":
     selftest()
