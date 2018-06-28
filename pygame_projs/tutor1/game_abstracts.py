@@ -65,7 +65,7 @@ if it is no longer exists, it is removed from the main list"""
                 self.printer.print_line( "stats" )
                 self.printer.print_line( "game objs num: {}".format( len( self.obj_list ) ) )
                 draw_time = time.time() - frame_start
-                time_stats = "frame drawn in: {}/{}, {}% of time for a frame".format(
+                time_stats = "frame drawn in: {:.3f}/{:.3f}, {:06.3f}% of time for a frame".format(
                                                           round( draw_time, 2 ),
                                                           round( time_for_frame, 2 ),
                                                           round( draw_time/time_for_frame*100, 1 )
