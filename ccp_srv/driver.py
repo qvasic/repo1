@@ -1,0 +1,86 @@
+class TextPrinter:
+    def __init__( self, surf, color ):
+        import pygame
+        self.reset()
+        self.font = pygame.font.SysFont( "Courier", 18, bold=True )
+        self.surf = surf
+        self.color = color
+
+    def print_line( self, textString ):
+        text_bitmap = self.font.render( textString, True, self.color )
+        self.surf.blit( text_bitmap, [self.x, self.y] )
+        self.y += self.line_height
+
+    def reset(self):
+        self.x = 10
+        self.y = 10
+        self.line_height = 15
+
+def change_value( val, step, min, max ):
+    assert min<max
+    if val+step > max:
+        return max
+    elif val+step < min:
+        return min
+    else:
+        return val+step
+
+def speed_ms_to_kmh( ms ):
+    return ms*3600/1000
+
+def main():
+    import pygame, time, vehicle_phys
+
+    refresh_rate = 10
+    ctrl_step = 0.03
+
+    pygame.init()
+
+    surface = pygame.display.set_mode( ( 600, 100 ) )
+    printer = TextPrinter( surface, (0, 192, 0) )
+    vehicle = vehicle_phys.VehicleOnEarthSurface( )
+
+    steering = 0
+    throttle = 0
+    brake = 0
+
+    last_move_time = time.time( )
+
+    while 1:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT:
+                    steering = change_value( steering, -ctrl_step, -1, 1 )
+                elif event.key == pygame.K_RIGHT:
+                    steering = change_value( steering, ctrl_step, -1, 1 )
+                elif event.key == pygame.K_DOWN:
+                    if throttle > 0:
+                        throttle = change_value( throttle, -ctrl_step, 0, 1 )
+                    else:
+                        brake = change_value( brake, ctrl_step, 0, 1 )
+                elif event.key == pygame.K_UP:
+                    if brake > 0:
+                        brake = change_value( brake, -ctrl_step, 0, 1 )
+                    else:
+                        throttle = change_value( throttle, ctrl_step, 0, 1 )
+
+        now = time.time( )
+        vehicle.move( now-last_move_time, steering, throttle, brake )
+        last_move_time = now
+
+        surface.fill( (0, 0, 0) )
+        printer.reset( )
+        printer.print_line( "steering: {:.2f} throttle: {:.2f} brake: {:.2f}".format(
+            steering, throttle, brake ) )
+        printer.print_line( "lat: {:.3f} lng: {:.3f} bearing: {:.0f} speed: {:7.2f}".format(
+            vehicle.lat, vehicle.lng, vehicle.bearing_deg, speed_ms_to_kmh( vehicle.speed_m_s ) ) )
+
+        pygame.display.flip( )
+
+        time.sleep( 1/refresh_rate )
+
+
+if __name__ == "__main__":
+    main()

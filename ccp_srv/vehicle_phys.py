@@ -15,10 +15,10 @@ class VehicleOnEarthSurface:
         self.mass_kg = 2000
         self.speed_m_s = 0
 
-        self.max_thrust_n = 1000
+        self.max_thrust_n = 3000
         self.internal_friction_n = 100
-        self.drag_compontents = 0.3 * 200
-        self.max_braking_n = 300
+        self.drag_compontents = 0.1
+        self.max_braking_n = 2000
 
     def recalc_speed( self, time_s, throttle_ctrl, brake_ctrl ):
         """Recalculate speed change over time.
@@ -97,9 +97,9 @@ class VehicleOnEarthSurface:
                 self.move_straight( dist_traveled_m )
 
 def selftest():
-    print( "performing self-test" )
-    v = VehicleOnEarthSurface()
+    print( "performing smoke self-testing" )
 
+    v = VehicleOnEarthSurface()
     assert v.lat == 0 and v.lng == 0 and v.speed_m_s == 0
 
     v.move( 1, 0, 0, 0 )
