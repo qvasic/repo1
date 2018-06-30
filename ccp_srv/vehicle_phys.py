@@ -68,7 +68,7 @@ class VehicleOnEarthSurface:
             raise ValueError( "Speed is too fast for this turn radius." )
 
         direct_dist_to_end_of_travel_m = 2 * turn_radius_m * math.sin( angle_turned_rad/2 )
-        direct_bearing_to_end_of_travel_deg = 90 - angle_turned_rad/2
+        direct_bearing_to_end_of_travel_deg = earth_walk.rad_to_deg( angle_turned_rad/2 )
 
         steer_dir = 1 if steering_ctrl > 0 else -1
 

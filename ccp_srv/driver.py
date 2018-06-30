@@ -45,8 +45,8 @@ class Driver:
         printer = TextPrinter( surface, (0, 192, 0) )
         vehicle = vehicle_phys.VehicleOnEarthSurface( )
 
-        vehicle.lat = 49.802975
-        vehicle.lng = 24.000613
+        vehicle.lat = 37.807973
+        vehicle.lng = -122.442499
 
         steering = 0
         throttle = 0
