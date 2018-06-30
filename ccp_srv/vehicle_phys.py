@@ -15,10 +15,10 @@ class VehicleOnEarthSurface:
         self.mass_kg = 2000
         self.speed_m_s = 0
 
-        self.max_thrust_n = 3000
-        self.internal_friction_n = 100
-        self.drag_compontents = 0.1
-        self.max_braking_n = 2000
+        self.max_thrust_n = 10000
+        self.internal_friction_n = 700
+        self.drag_compontents = 3
+        self.max_braking_n = 12000
 
     def recalc_speed( self, time_s, throttle_ctrl, brake_ctrl ):
         """Recalculate speed change over time.
@@ -64,6 +64,8 @@ class VehicleOnEarthSurface:
         turn_radius_m = math.sqrt( ( back_wheel_to_turn_center_m )**2
                                    + (self.wheelbase_m/2)**2 )
         angle_turned_rad = dist_m / turn_radius_m
+        if angle_turned_rad > math.pi/2:
+            raise ValueError( "Speed is too fast for this turn radius." )
 
         direct_dist_to_end_of_travel_m = 2 * turn_radius_m * math.sin( angle_turned_rad/2 )
         direct_bearing_to_end_of_travel_deg = 90 - angle_turned_rad/2
@@ -73,9 +75,11 @@ class VehicleOnEarthSurface:
         new_lat, new_lng = earth_walk.step( self.lat, self.lng,
                             self.bearing_deg + steer_dir * direct_bearing_to_end_of_travel_deg,
                             earth_walk.Earth_dist_to_deg( direct_dist_to_end_of_travel_m ) )
-        new_bearing_deg = ( earth_walk.dist_and_brng( new_lat, new_lng, self.lat, self.lng )[1]+180 ) % 360
-        new_bearing_deg -= steer_dir * direct_bearing_to_end_of_travel_deg
-        new_bearing_deg += steer_dir * earth_walk.rad_to_deg( angle_turned_rad )
+
+        new_bearing_deg = ( earth_walk.dist_and_brng( new_lat, new_lng, self.lat, self.lng )[1]+180
+                            - steer_dir * direct_bearing_to_end_of_travel_deg
+                            + steer_dir * earth_walk.rad_to_deg( angle_turned_rad )
+                          ) % 360
 
         self.lat, self.lng, self.bearing_deg = new_lat, new_lng, new_bearing_deg
 
@@ -106,7 +110,7 @@ def selftest():
     assert v.lat == 0 and v.lng == 0 and v.speed_m_s == 0
 
     v.move( 1, 0, 1, 0 )
-    assert v.lat > 0 and round( v.lng, 20 ) == 0 and v.speed_m_s > 0
+    assert v.lat > 0 and round( v.lng, 19 ) == 0 and v.speed_m_s > 0
 
     v.move( 1, 0.3, 1, 0 )
     assert v.lat > 0 and v.lng > 0 and v.speed_m_s > 0
