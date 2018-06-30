@@ -104,17 +104,17 @@ class LogitechF310Input( UserInput ):
             raise RuntimeError( "Logitech F310 gamepad could not be found" )
 
     def get_steering( self ):
-        return self.joy.get_axis( 0 )
+        return round( self.joy.get_axis( 0 ), 2 )
 
     def get_throttle( self ):
-        axis3 = self.joy.get_axis( 3 )
+        axis3 = round( self.joy.get_axis( 3 ), 2 )
         if axis3 < 0:
             return -axis3
         else:
             return 0
 
     def get_brake( self ):
-        axis3 = self.joy.get_axis( 3 )
+        axis3 = round( self.joy.get_axis( 3 ), 2 )
         if axis3 > 0:
             return axis3
         else:
@@ -139,7 +139,7 @@ class Driver:
 
         pygame.init( )
 
-        surface = pygame.display.set_mode( ( 600, 100 ) )
+        surface = pygame.display.set_mode( ( 700, 70 ) )
         printer = TextPrinter( surface, (0, 192, 0) )
         vehicle = vehicle_phys.VehicleOnEarthSurface( )
 
@@ -172,7 +172,7 @@ class Driver:
                                                                         user_input.get_steering( ),
                                                                         user_input.get_throttle( ),
                                                                         user_input.get_brake( ) ) )
-            printer.print_line( "lat: {:.3f} lng: {:.3f} bearing: {:.0f} speed: {:6.1f}".format(
+            printer.print_line( "lat: {:7.3f} lng: {:8.3f} bearing: {:3.0f} speed: {:6.1f} km/h".format(
                 vehicle.lat, vehicle.lng, vehicle.bearing_deg, speed_ms_to_kmh( vehicle.speed_m_s ) ) )
 
             pygame.display.flip( )
