@@ -61,7 +61,7 @@ class EarthCircumventor:
     def run( self ):
         import earth_walk, time
 
-        speed_m_s = 1000
+        speed_m_s = 10000
         speed_deg = earth_walk.Earth_dist_to_deg( speed_m_s )
 
         lat, lng = 0, 0
