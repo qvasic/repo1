@@ -8,7 +8,7 @@ class VehicleOnEarthSurface:
         self.bearing_deg = 0
 
         # geometry
-        self.wheelbase_m = 4
+        self.wheelbase_m = 2.6
         self.max_front_turn_deg = 50
 
         # intertia and propulsion
