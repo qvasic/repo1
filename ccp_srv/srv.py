@@ -52,11 +52,35 @@ def iter_by_n( iterable, N ):
     if n != 0:
         yield curr_iter
 
+class EarthCircumventor:
+    def __init__( self, coords_setter_callback=None ):
+        """coords_setter_callback - callback function that will update systems's current position.
+        Expects arguments: latitude, longitude, speed in m/s, current bearing."""
+        self.update_coords = coords_setter_callback
+
+    def run( self ):
+        import earth_walk, time
+
+        speed_m_s = 1000
+        speed_deg = earth_walk.Earth_dist_to_deg( speed_m_s )
+
+        lat, lng = 0, 0
+        bearing = 30
+
+        while True:
+            prev_lat, prev_lng = lat, lng
+            lat, lng = earth_walk.step( lat, lng, bearing, speed_deg/FREQ )
+            bearing = ( earth_walk.dist_and_brng( lat, lng, prev_lat, prev_lng )[1]+180 ) % 360
+
+            if self.update_coords:
+                self.update_coords( lat, lng, speed_m_s, bearing )
+
+            time.sleep( 1/FREQ )
 
 shared_gps_data = SharedData( b"" )
 shared_printer = SharedPrinter( )
 
-def file_reader():
+def coords_generator():
     import time
     import nmea
     
@@ -71,23 +95,13 @@ def file_reader():
     else:
         print( "ENGINE no file given, simulating Earth circumvention" )
 
-        import earth_walk
-
-        speed_m_s = 1000
-        speed_deg = earth_walk.Earth_dist_to_deg( speed_m_s )
-
-        lat, lng = 0, 0
-        bearing = 30
-
-        while True:
-            prev_lat, prev_lng = lat, lng
-            lat, lng = earth_walk.step( lat, lng, bearing, speed_deg/FREQ )
-            bearing = ( earth_walk.dist_and_brng( lat, lng, prev_lat, prev_lng )[1]+180 ) % 360
-
+        def update_coords_shared( lat, lng, speed_m_s, bearing ):
             nmea_sents = nmea.gpgga_gpgsa_gprmc( lat, lng, nmea.meters_to_knots( 3600*speed_m_s ),
                                                  bearing ).encode( "utf-8" )
             shared_gps_data.set( nmea_sents )
-            time.sleep( 1/FREQ )
+
+        circumvent = EarthCircumventor( update_coords_shared )
+        circumvent.run( )
 
 class CCPRequestHandler( socketserver.StreamRequestHandler ):
     def handle( self ):
@@ -114,8 +128,8 @@ def main():
         global FILE
         FILE = sys.argv[1]
 
-    file_reader_thread = threading.Thread( target=file_reader, daemon=True )
-    file_reader_thread.start()
+    coords_generator_thread = threading.Thread( target=coords_generator, daemon=True )
+    coords_generator_thread.start()
 
     srv = socketserver.ThreadingTCPServer( ( "", PORT ), CCPRequestHandler )
     print( "opened server on port {}, serving forever".format( PORT ) )
