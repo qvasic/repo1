@@ -92,6 +92,13 @@ def gprmc( lat, lng, speed=0.0, course=0.0 ):
         date=date_str( ) )
     return finalize_sentence( gprmc_sentence )
 
+def gpgga_gpgsa_gprmc( lat, lng, speed=0.0, course=0.0 ):
+    """Returns newline-separated GPGGA, GPGSA and GPRMC sentences."""
+    return "{gpgga}\n{gpgsa}\n{gprmc}\n".format( gpgga=gpgga( lat, lng ),
+                                                 gpgsa=gpgsa( ),
+                                                 gprmc=gprmc( lat, lng, speed, course )
+                                               )
+
 def selftest():
     from testing import test_returns
 

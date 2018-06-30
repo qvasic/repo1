@@ -84,11 +84,8 @@ def file_reader():
             lat, lng = earth_walk.step( lat, lng, bearing, speed_deg/FREQ )
             bearing = ( earth_walk.dist_and_brng( lat, lng, prev_lat, prev_lng )[1]+180 ) % 360
 
-            nmea_sents = "{gpgga}\n{gpgsa}\n{gprmc}\n".format( gpgga=nmea.gpgga( lat, lng ),
-                                                               gpgsa=nmea.gpgsa( ),
-                                                               gprmc=nmea.gprmc( lat, lng,
-                                               nmea.meters_to_knots( 3600*speed_m_s ), bearing )
-                                                             ).encode( "utf-8" )
+            nmea_sents = nmea.gpgga_gpgsa_gprmc( lat, lng, nmea.meters_to_knots( 3600*speed_m_s ),
+                                                 bearing ).encode( "utf-8" )
             shared_gps_data.set( nmea_sents )
             time.sleep( 1/FREQ )
 
