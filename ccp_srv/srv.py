@@ -81,8 +81,7 @@ shared_gps_data = SharedData( b"" )
 shared_printer = SharedPrinter( )
 
 def coords_generator():
-    import time
-    import nmea
+    import time, nmea, driver
     
     if FILE:
         while True:
@@ -100,8 +99,11 @@ def coords_generator():
                                                  bearing ).encode( "utf-8" )
             shared_gps_data.set( nmea_sents )
 
-        circumvent = EarthCircumventor( update_coords_shared )
-        circumvent.run( )
+        #circumvent = EarthCircumventor( update_coords_shared )
+        #circumvent.run( )
+
+        drvr = driver.Driver( update_coords_shared )
+        drvr.run( )
 
 class CCPRequestHandler( socketserver.StreamRequestHandler ):
     def handle( self ):
