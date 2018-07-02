@@ -107,14 +107,14 @@ class LogitechF310Input( UserInput ):
         return round( self.joy.get_axis( 0 ), 2 )
 
     def get_throttle( self ):
-        axis3 = round( self.joy.get_axis( 3 ), 2 )
+        axis3 = round( self.joy.get_axis( 2 ), 2 )
         if axis3 < 0:
             return -axis3
         else:
             return 0
 
     def get_brake( self ):
-        axis3 = round( self.joy.get_axis( 3 ), 2 )
+        axis3 = round( self.joy.get_axis( 2 ), 2 )
         if axis3 > 0:
             return axis3
         else:
@@ -133,7 +133,7 @@ class Driver:
         def speed_ms_to_kmh( ms ):
             return ms*3600/1000
 
-        refresh_rate = 10
+        refresh_rate = 30
         ctrl_step_big = 0.05
         ctrl_step_sml = 0.01
 

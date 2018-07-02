@@ -9,7 +9,7 @@ class VehicleOnEarthSurface:
 
         # geometry
         self.wheelbase_m = 2.6
-        self.max_front_turn_deg = 50
+        self.max_front_turn_deg = 40
 
         # intertia and propulsion
         self.mass_kg = 2000
