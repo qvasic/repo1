@@ -183,8 +183,16 @@ class Driver:
             time.sleep( 1/refresh_rate )
 
 def main( ):
+    import srv
+
+    shared_bin_nmea = srv.SharedData( b"" )
+    server = srv.CCPServer( shared_bin_nmea )
+    server.start( )
+
     d = Driver( )
     d.run( )
+
+    server.stop( )
 
 if __name__ == "__main__":
     main( )
