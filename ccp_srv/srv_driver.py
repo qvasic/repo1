@@ -1,6 +1,7 @@
 class TextPrinter:
-    def __init__( self, surf, color ):
+    def __init__( self, surf, color, start ):
         import pygame
+        self.start = start
         self.reset()
         self.font = pygame.font.SysFont( "Courier", 18, bold=True )
         self.surf = surf
@@ -12,8 +13,7 @@ class TextPrinter:
         self.y += self.line_height
 
     def reset(self):
-        self.x = 10
-        self.y = 10
+        self.x, self.y = self.start
         self.line_height = 15
 
 class UserInput:
@@ -123,11 +123,30 @@ class LogitechF310Input( UserInput ):
     def process_pygame_event( self, event ):
         return False
 
+def draw_wheels( surface, color, turn_deg ):
+    import pygame
+    from earth_walk import coords
+    wheel_r = 12
+    lt_x, lt_y = 50, 40
+    vehicle_wid, vehicle_len = 50, 80
+    thick = 7
+
+    x, y = coords( 90+turn_deg, wheel_r )
+    pygame.draw.line( surface, color, (lt_x+x, lt_y+y), (lt_x-x, lt_y-y), thick )
+    pygame.draw.line( surface, color, (lt_x+x+vehicle_wid, lt_y+y),
+                                      (lt_x-x+vehicle_wid, lt_y-y), thick )
+
+    pygame.draw.line( surface, color, (lt_x, lt_y-wheel_r+vehicle_len),
+                                      (lt_x, lt_y+wheel_r+vehicle_len), thick )
+    pygame.draw.line( surface, color, (lt_x+vehicle_wid, lt_y-wheel_r+vehicle_len),
+                                      (lt_x+vehicle_wid, lt_y+wheel_r+vehicle_len), thick )
+
+
 class Driver:
     def __init__( self, coords_setter_callback=None ):
         self.update_coords = coords_setter_callback
 
-    def run( self ):
+    def run( self, start_coords=None ):
         import pygame, time, vehicle_phys
 
         def speed_ms_to_kmh( ms ):
@@ -139,8 +158,9 @@ class Driver:
 
         pygame.init( )
 
-        surface = pygame.display.set_mode( ( 700, 70 ) )
-        printer = TextPrinter( surface, (0, 192, 0) )
+        foreground = (0, 192, 0)
+        surface = pygame.display.set_mode( ( 400, 165 ) )
+        printer = TextPrinter( surface, foreground, ( 150, 10 ) )
         vehicle = vehicle_phys.VehicleOnEarthSurface( )
 
         try:
@@ -148,8 +168,10 @@ class Driver:
         except RuntimeError:
             user_input = KeyboardInput( )
 
-        vehicle.lat = 37.807973
-        vehicle.lng = -122.442499
+        if start_coords is None:
+            vehicle.lat, vehicle.lng = 37.807973, -122.442499
+        else:
+            vehicle.lat, vehicle.lng = start_coords
 
         last_move_time = time.time( )
 
@@ -167,13 +189,19 @@ class Driver:
             last_move_time = now
 
             surface.fill( (0, 0, 0) )
+
+            draw_wheels( surface, foreground, user_input.get_steering( ) * vehicle.max_front_turn_deg )
+
             printer.reset( )
-            printer.print_line( "steering: {:5.2f} throttle: {:.2f} brake: {:.2f}".format(
-                                                                        user_input.get_steering( ),
-                                                                        user_input.get_throttle( ),
-                                                                        user_input.get_brake( ) ) )
-            printer.print_line( "lat: {:7.3f} lng: {:8.3f} bearing: {:3.0f} speed: {:6.1f} km/h".format(
-                vehicle.lat, vehicle.lng, vehicle.bearing_deg, speed_ms_to_kmh( vehicle.speed_m_s ) ) )
+            printer.print_line( "throttle:  {:.2f}".format( user_input.get_throttle( ) ) )
+            printer.print_line( "brake:     {:.2f}".format( user_input.get_brake( ) ) )
+            printer.print_line( "steering: {:5.2f}".format( user_input.get_steering( ) ) )
+            printer.print_line( "" )
+            printer.print_line( "speed:  {:6.1f} km/h".format( speed_ms_to_kmh( vehicle.speed_m_s ) ) )
+            printer.print_line( "" )
+            printer.print_line( "lat:     {:7.3f}".format( vehicle.lat ) )
+            printer.print_line( "lng:    {:8.3f}".format( vehicle.lng ) )
+            printer.print_line( "bearing: {:3.0f}".format( vehicle.bearing_deg ) )
 
             pygame.display.flip( )
 
@@ -183,7 +211,14 @@ class Driver:
             time.sleep( 1/refresh_rate )
 
 def main( ):
-    import srv
+    import srv, sys
+
+    start_coords = None
+
+    if len( sys.argv ) == 2:
+        start_coords = map( float, sys.argv[1].split( "," ) )
+    elif len( sys.argv ) >= 3:
+        start_coords = map( float, sys.argv[1:3] )
 
     shared_bin_nmea = srv.SharedData( b"" )
 
@@ -198,7 +233,7 @@ def main( ):
     server.start( )
 
     d = Driver( update_coords_shared )
-    d.run( )
+    d.run( start_coords )
 
     server.stop( )
 

@@ -95,7 +95,7 @@ class VehicleOnEarthSurface:
 
         if self.speed_m_s > 0:
             dist_traveled_m = self.speed_m_s * time_s
-            if round( dist_traveled_m, 6 ) != 0:
+            if round( dist_traveled_m, 3 ) != 0:
                 if steering_ctrl != 0:
                     self.move_curved( dist_traveled_m, steering_ctrl )
                 else:
