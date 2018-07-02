@@ -95,10 +95,11 @@ class VehicleOnEarthSurface:
 
         if self.speed_m_s > 0:
             dist_traveled_m = self.speed_m_s * time_s
-            if steering_ctrl != 0:
-                self.move_curved( dist_traveled_m, steering_ctrl )
-            else:
-                self.move_straight( dist_traveled_m )
+            if round( dist_traveled_m, 6 ) != 0:
+                if steering_ctrl != 0:
+                    self.move_curved( dist_traveled_m, steering_ctrl )
+                else:
+                    self.move_straight( dist_traveled_m )
 
 def selftest():
     print( "performing smoke self-testing" )
