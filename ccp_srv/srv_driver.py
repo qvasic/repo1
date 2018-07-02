@@ -169,7 +169,11 @@ class Driver:
             user_input = KeyboardInput( )
 
         if start_coords is None:
-            vehicle.lat, vehicle.lng = 37.807973, -122.442499
+            # san francisco
+            # vehicle.lat, vehicle.lng = 37.807973, -122.442499
+
+            # lviv, naukova
+            vehicle.lat, vehicle.lng = 49.803076, 24.000658
         else:
             vehicle.lat, vehicle.lng = start_coords
 
