@@ -1,15 +1,24 @@
 class TextPrinter:
-    def __init__( self, surf, color, start ):
+    font = None
+    def draw_text( surf, coords, text, color, centered=False ):
         import pygame
+        if TextPrinter.font is None:
+            TextPrinter.font = pygame.font.SysFont( "Courier", 18, bold=True )
+
+        text_bitmap = TextPrinter.font.render( text, True, color )
+        if centered:
+            printed_size = text_bitmap.get_size( )
+            coords = coords[0]-printed_size[0]/2, coords[1]-printed_size[1]/2
+        surf.blit( text_bitmap, coords )
+
+    def __init__( self, surf, color, start ):
         self.start = start
         self.reset()
-        self.font = pygame.font.SysFont( "Courier", 18, bold=True )
         self.surf = surf
         self.color = color
 
-    def print_line( self, textString ):
-        text_bitmap = self.font.render( textString, True, self.color )
-        self.surf.blit( text_bitmap, [self.x, self.y] )
+    def print_line( self, text ):
+        TextPrinter.draw_text( self.surf, ( self.x, self.y ), text, self.color )
         self.y += self.line_height
 
     def reset(self):
@@ -123,24 +132,53 @@ class LogitechF310Input( UserInput ):
     def process_pygame_event( self, event ):
         return False
 
+def sum_coords( *coords ):
+    """Returns sum of all coords passed here - expects subscribeable objects with indeces 0 and 1."""
+    sum = [ 0, 0 ]
+    for c in coords:
+        sum[0]+=c[0]
+        sum[1]+=c[1]
+    return sum
+
 def draw_wheels( surface, color, turn_deg ):
     import pygame
     from earth_walk import coords
-    wheel_r = 12
-    lt_x, lt_y = 50, 40
-    vehicle_wid, vehicle_len = 50, 80
-    thick = 7
+    wheel_r = 7
+    center = ( 75, 80 )
+    vwid, vlen = 30, 50
+    thick = 6
 
     x, y = coords( 90+turn_deg, wheel_r )
-    pygame.draw.line( surface, color, (lt_x+x, lt_y+y), (lt_x-x, lt_y-y), thick )
-    pygame.draw.line( surface, color, (lt_x+x+vehicle_wid, lt_y+y),
-                                      (lt_x-x+vehicle_wid, lt_y-y), thick )
+    pygame.draw.line( surface, color, sum_coords( (x,y), center, (-vwid/2, -vlen/2) ),
+                                      sum_coords( (-x,-y), center, (-vwid/2, -vlen/2) ), thick )
+    pygame.draw.line( surface, color, sum_coords( (x,y), center, (vwid/2, -vlen/2) ),
+                                      sum_coords( (-x,-y), center, (vwid/2, -vlen/2) ), thick )
 
-    pygame.draw.line( surface, color, (lt_x, lt_y-wheel_r+vehicle_len),
-                                      (lt_x, lt_y+wheel_r+vehicle_len), thick )
-    pygame.draw.line( surface, color, (lt_x+vehicle_wid, lt_y-wheel_r+vehicle_len),
-                                      (lt_x+vehicle_wid, lt_y+wheel_r+vehicle_len), thick )
+    pygame.draw.line( surface, color, sum_coords( (0,wheel_r), center, (-vwid/2, vlen/2) ),
+                                      sum_coords( (0,-wheel_r), center, (-vwid/2, vlen/2) ), thick )
+    pygame.draw.line( surface, color, sum_coords( (0,wheel_r), center, (vwid/2, vlen/2) ),
+                                      sum_coords( (0,-wheel_r), center, (vwid/2, vlen/2) ), thick )
 
+def draw_compass( surface, color, bearing_deg ):
+    import pygame
+    from earth_walk import coords
+    center = ( 75, 80 )
+
+    letters = ( ( 0, "N", 55 ),
+    )
+    marks = ( ( ( 90, 180, 270 ), 55, 10, 3),
+              ( ( 45, 135, 225, 315 ), 55, 7, 1 ),
+    )
+
+    for d, l, r in letters:
+        c = sum_coords( coords( d-bearing_deg-90, r ), center )
+        TextPrinter.draw_text( surface, c, l, color, centered=True )
+
+    for ms, r, l, th in marks:
+        for m in ms:
+            fr = sum_coords( coords( m-bearing_deg-90, r-l/2 ), center )
+            to = sum_coords( coords( m-bearing_deg-90, r+l/2 ), center )
+            pygame.draw.line( surface, color, fr, to, th )
 
 class Driver:
     def __init__( self, coords_setter_callback=None ):
@@ -158,9 +196,12 @@ class Driver:
 
         pygame.init( )
 
-        foreground = (0, 192, 0)
+        text_color = (0, 192, 0)
+        wheels_color = (64, 92, 64)
+        compass_color = (128, 128, 0)
+
         surface = pygame.display.set_mode( ( 400, 165 ) )
-        printer = TextPrinter( surface, foreground, ( 150, 10 ) )
+        printer = TextPrinter( surface, text_color, ( 150, 10 ) )
         vehicle = vehicle_phys.VehicleOnEarthSurface( )
 
         try:
@@ -194,7 +235,8 @@ class Driver:
 
             surface.fill( (0, 0, 0) )
 
-            draw_wheels( surface, foreground, user_input.get_steering( ) * vehicle.max_front_turn_deg )
+            draw_wheels( surface, wheels_color, user_input.get_steering( ) * vehicle.max_front_turn_deg )
+            draw_compass( surface, compass_color, vehicle.bearing_deg )
 
             printer.reset( )
             printer.print_line( "throttle:  {:.2f}".format( user_input.get_throttle( ) ) )
