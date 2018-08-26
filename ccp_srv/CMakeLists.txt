@@ -19,3 +19,5 @@ target_link_libraries( srv_file ${BOOST_LIBS} )
 
 add_executable( clnt clnt.cpp )
 target_link_libraries( clnt ${LINK_LIBS} )
+
+add_executable( test_nmea test_nmea.cpp nmea.cpp nmea.h )

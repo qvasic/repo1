@@ -19,36 +19,6 @@ void CCPServer::get_ccp( ccp_type &ret_ccp ) const
     ret_ccp = ccp.load( );
 }
 
-class NewClientHandler
-{
-public:
-    using tcp = boost::asio::ip::tcp;
-    NewClientHandler( std::list< tcp::socket >& connected_clients, tcp::acceptor& acceptor,
-                      tcp::socket& new_client, tcp::endpoint& new_client_endpoint )
-        : _connected_clients( connected_clients ), _acceptor( acceptor ),
-          _new_client( new_client ), _new_client_endpoint( new_client_endpoint )
-    {}
-    void operator()( const boost::system::error_code& error)
-    {
-        if( !error )
-        {
-            std::cout << "new client connected: " << _new_client.remote_endpoint( ) << std::endl;
-            _connected_clients.push_back( std::move( _new_client ) );
-        }
-        else
-        {
-            std::cout << "could not connect new client: " << error << std::endl;
-        }
-        _acceptor.async_accept( _new_client, _new_client_endpoint, *this );
-    }
-
-private:
-    std::list< tcp::socket >& _connected_clients;
-    tcp::acceptor& _acceptor;
-    tcp::socket& _new_client;
-    tcp::endpoint& _new_client_endpoint;
-};
-
 void CCPServer::server_routine( )
 {
     std::cout << __func__ << " started" << std::endl;
@@ -62,8 +32,22 @@ void CCPServer::server_routine( )
     tcp::socket new_client( io_service );
     tcp::endpoint new_client_endpoint;
 
-    NewClientHandler new_client_handler( connected_clients, acceptor, new_client,
-                                         new_client_endpoint );
+    std::function< void ( const boost::system::error_code& ) > new_client_handler =
+            [ &new_client, &connected_clients, &acceptor,
+              &new_client_endpoint, &new_client_handler ]
+            ( const boost::system::error_code& error )
+    {
+        if( !error )
+        {
+            std::cout << "new client connected: " << new_client.remote_endpoint( ) << std::endl;
+            connected_clients.push_back( std::move( new_client ) );
+        }
+        else
+        {
+            std::cout << "could not connect new client: " << error << std::endl;
+        }
+        acceptor.async_accept( new_client, new_client_endpoint, new_client_handler );
+    };
 
     acceptor.async_accept( new_client, new_client_endpoint, new_client_handler );
 
@@ -76,7 +60,8 @@ void CCPServer::server_routine( )
                           + std::to_string( ccp_copy.lng ) + "\n";
         auto buffer = boost::asio::buffer( data );
 
-        for ( auto client_iter = connected_clients.begin( ); client_iter != connected_clients.end( ); )
+        for ( auto client_iter = connected_clients.begin( );
+              client_iter != connected_clients.end( ); )
         {
             boost::system::error_code error;
             client_iter->write_some( buffer, error );
