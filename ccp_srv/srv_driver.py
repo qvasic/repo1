@@ -132,6 +132,29 @@ class LogitechF310Input( UserInput ):
     def process_pygame_event( self, event ):
         return False
 
+class LogitechFormulaForceEXInput( UserInput ):
+        def __init__( self ):
+            import pygame
+            for i in range( pygame.joystick.get_count( ) ):
+                self.joy = pygame.joystick.Joystick( i )
+                if self.joy.get_name( ) == "Logitech Formula Force EX USB":
+                    self.joy.init( )
+                    return
+            else:
+                raise RuntimeError( "Logitech Formula Force EX USB racing wheel could not be found" )
+
+        def get_steering( self ):
+            return round( self.joy.get_axis( 0 ), 2 )
+
+        def get_throttle( self ):
+            return round( (self.joy.get_axis( 2 ) - 1) / -2, 2 )
+
+        def get_brake( self ):
+            return round( (self.joy.get_axis( 3 ) - 1) / -2, 2 )
+
+        def process_pygame_event( self, event ):
+            return False
+
 def sum_coords( *coords ):
     """Returns sum of all coords passed here - expects subscribeable objects with indeces 0 and 1."""
     sum = [ 0, 0 ]
@@ -204,10 +227,13 @@ class Driver:
         printer = TextPrinter( surface, text_color, ( 150, 10 ) )
         vehicle = vehicle_phys.VehicleOnEarthSurface( )
 
-        try:
-            user_input = LogitechF310Input( )
-        except RuntimeError:
-            user_input = KeyboardInput( )
+        input_classes = ( LogitechFormulaForceEXInput, LogitechF310Input, KeyboardInput )
+        for possible_input in input_classes:
+            try:
+                user_input = possible_input( )
+                break
+            except RuntimeError:
+                continue
 
         if start_coords is None:
             # san francisco
