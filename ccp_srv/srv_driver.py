@@ -287,10 +287,16 @@ def main( ):
 
     start_coords = None
 
-    if len( sys.argv ) == 2:
-        start_coords = map( float, sys.argv[1].split( "," ) )
-    elif len( sys.argv ) >= 3:
-        start_coords = map( float, sys.argv[1:3] )
+    try:
+        if len( sys.argv ) == 2:
+            start_coords = list( map( float, sys.argv[1].split( "," ) ) )
+        elif len( sys.argv ) >= 3:
+            start_coords = list( map( float, sys.argv[1:3] ) )
+        if start_coords and ( start_coords[0] > 90 or start_coords[0] < -90 or start_coords[1] > 180 or start_coords[1] < -180 ):
+            raise ValueError( "Coordinates are out of possible bounds." )
+    except ValueError:
+        print( "INIT start coordinates are invalid, using default ones" )
+        start_coords = None
 
     shared_bin_nmea = srv.SharedData( b"" )
 
