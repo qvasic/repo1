@@ -101,6 +101,18 @@ class KeyboardInput( UserInput ):
 
         return False
 
+def dead_center( value, gravity ):
+    """Maps value in a way, that everything between -gravity to +gravity becomes 0.
+    Everything else from -1 to -gravity and from +gravity to +1 becomes one continuous gradient
+    from -1 to +1."""
+
+    if -gravity <= value and value <= gravity:
+        return 0
+    else:
+        value -= gravity if value>0 else -gravity
+        return value / (1-gravity)
+
+
 class LogitechF310Input( UserInput ):
     def __init__( self ):
         import pygame
@@ -113,7 +125,7 @@ class LogitechF310Input( UserInput ):
             raise RuntimeError( "Logitech F310 gamepad could not be found" )
 
     def get_steering( self ):
-        return round( self.joy.get_axis( 0 ), 2 )
+        return round( dead_center( self.joy.get_axis( 0 ), 0.05 ), 2 )
 
     def get_throttle( self ):
         axis3 = round( self.joy.get_axis( 2 ), 2 )
@@ -144,7 +156,7 @@ class LogitechFormulaForceEXInput( UserInput ):
                 raise RuntimeError( "Logitech Formula Force EX USB racing wheel could not be found" )
 
         def get_steering( self ):
-            return round( self.joy.get_axis( 0 ), 2 )
+            return round( dead_center( self.joy.get_axis( 0 ), 0.05 ), 2 )
 
         def get_throttle( self ):
             return round( (self.joy.get_axis( 2 ) - 1) / -2, 2 )
