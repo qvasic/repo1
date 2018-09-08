@@ -149,5 +149,20 @@ class VehicleDriver:
 
             time.sleep( 1/refresh_rate )
 
+def main( ):
+    import time
+
+    last_dump_timestamp = time.time( )
+    dump_freq = 10
+    def dump_coords( lat, lng, speed_m_s, bearing ):
+        nonlocal last_dump_timestamp
+        timestamp = time.time( )
+        if timestamp-last_dump_timestamp > 1/dump_freq:
+            print( lat, lng, 0, bearing, speed_m_s, flush=True )
+            last_dump_timestamp = timestamp
+
+    d = VehicleDriver( dump_coords )
+    d.run( )
+
 if __name__ == "__main__":
-    print( "contains VehicleDriver class, should be used as a module" )
+    main( )
