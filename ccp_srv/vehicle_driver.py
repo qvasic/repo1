@@ -149,19 +149,27 @@ class VehicleDriver:
 
             time.sleep( 1/refresh_rate )
 
-def main( ):
-    import time
+class DumpCoordsWithFreq:
+    """Creates callable object. Can be called with positional info,
+    that info will dumped to stdout no more than given number of times per second."""
 
-    last_dump_timestamp = time.time( )
-    dump_freq = 10
-    def dump_coords( lat, lng, speed_m_s, bearing ):
-        nonlocal last_dump_timestamp
+    def __init__( self, freq ):
+        import time
+
+        self.interval = 1/freq
+        self.next_dump_timestamp = time.time( )
+
+    def __call__( self, lat, lng, speed_m_s, bearing ):
+        import time
+
         timestamp = time.time( )
-        if timestamp-last_dump_timestamp > 1/dump_freq:
+        if timestamp >= self.next_dump_timestamp:
             print( lat, lng, 0, bearing, speed_m_s, flush=True )
-            last_dump_timestamp = timestamp
+            self.next_dump_timestamp += self.interval
 
-    d = VehicleDriver( dump_coords )
+
+def main( ):
+    d = VehicleDriver( DumpCoordsWithFreq( 1 ) )
     d.run( )
 
 if __name__ == "__main__":

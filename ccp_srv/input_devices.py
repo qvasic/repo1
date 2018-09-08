@@ -1,4 +1,6 @@
-# class InputDeviceUnavailable ( RuntimeError )
+class InputDeviceUnavailable( RuntimeError ):
+    def __init__( self, what ):
+        RuntimeError.__init__( self, what )
 
 class UserInput:
     """Abstract class for getting steering, throttle and brake control input from human user.
@@ -87,7 +89,6 @@ def dead_center( value, gravity ):
         value -= gravity if value>0 else -gravity
         return value / (1-gravity)
 
-
 class LogitechF310Input( UserInput ):
     def __init__( self ):
         import pygame
@@ -97,7 +98,7 @@ class LogitechF310Input( UserInput ):
                 self.joy.init( )
                 return
         else:
-            raise RuntimeError( "Logitech F310 gamepad could not be found" )
+            raise InputDeviceUnavailable( "Logitech F310 gamepad could not be found" )
 
     def get_steering( self ):
         return round( dead_center( self.joy.get_axis( 0 ), 0.05 ), 2 )
@@ -128,7 +129,7 @@ class LogitechFormulaForceEXInput( UserInput ):
                     self.joy.init( )
                     return
             else:
-                raise RuntimeError( "Logitech Formula Force EX USB racing wheel could not be found" )
+                raise InputDeviceUnavailable( "Logitech Formula Force EX USB racing wheel could not be found" )
 
         def get_steering( self ):
             return round( dead_center( self.joy.get_axis( 0 ), 0.05 ), 2 )
@@ -151,7 +152,7 @@ class LogitechFormulaForceRXInput( UserInput ):
                     self.joy.init( )
                     return
             else:
-                raise RuntimeError( "Logitech Formula Force RX racing wheel could not be found" )
+                raise InputDeviceUnavailable( "Logitech Formula Force RX racing wheel could not be found" )
 
         def get_steering( self ):
             return round( dead_center( self.joy.get_axis( 0 ), 0.05 ), 2 )
@@ -170,15 +171,16 @@ class LogitechFormulaForceRXInput( UserInput ):
 def get_available_input( ):
     input_classes = ( LogitechFormulaForceRXInput,
                       LogitechFormulaForceEXInput,
-                      LogitechF310Input,
-                      KeyboardInput )
+                      LogitechF310Input )
 
     for possible_input in input_classes:
         try:
             initialized_input = possible_input( )
             break
-        except RuntimeError:
+        except InputDeviceUnavailable:
             continue
+    else:
+        initialized_input = KeyboardInput( )
 
     return initialized_input
 
