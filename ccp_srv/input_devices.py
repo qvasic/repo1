@@ -21,6 +21,9 @@ class UserInput:
 class KeyboardInput( UserInput ):
     """Input from keyboard."""
     def __init__( self ):
+        import pygame.key
+        pygame.key.set_repeat( 300, 150 )
+
         self.steering = 0
         self.throttle = 0
         self.brake = 0
@@ -52,17 +55,16 @@ class KeyboardInput( UserInput ):
         change_value = KeyboardInput.change_value
 
         if event.type == pygame.KEYDOWN:
-            ctrl_step = self.step_small if event.mod & pygame.KMOD_CTRL else self.step_big
+            ctrl_step = self.step_big if event.mod & pygame.KMOD_SHIFT else self.step_small
 
-            if event.mod & pygame.KMOD_SHIFT:
+            if event.mod & pygame.KMOD_CTRL:
                 if event.key == pygame.K_DOWN:
                     self.brake = change_value( self.brake, -ctrl_step, 0, 1 )
                     return True
                 elif event.key == pygame.K_UP:
                     self.brake = change_value( self.brake, ctrl_step, 0, 1 )
                     return True
-
-            elif event.mod == pygame.KMOD_NONE or event.mod & pygame.KMOD_CTRL:
+            else:
                 if event.key == pygame.K_LEFT:
                     self.steering = change_value( self.steering, -ctrl_step, -1, 1 )
                     return True
