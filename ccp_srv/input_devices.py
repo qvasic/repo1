@@ -80,6 +80,9 @@ class KeyboardInput( UserInput ):
 
         return False
 
+def square_signed( n ):
+    return n * abs( n )
+
 class LogitechF310Input( UserInput ):
     def __init__( self ):
         import pygame
@@ -92,7 +95,7 @@ class LogitechF310Input( UserInput ):
             raise InputDeviceUnavailable( "Logitech F310 gamepad could not be found" )
 
     def get_steering( self ):
-        return self.joy.get_axis( 0 ) ** 2
+        return square_signed( self.joy.get_axis( 0 ) )
 
     def get_throttle( self ):
         axis3 = round( self.joy.get_axis( 2 ), 2 )
@@ -123,7 +126,7 @@ class LogitechFormulaForceEXInput( UserInput ):
                 raise InputDeviceUnavailable( "Logitech Formula Force EX USB racing wheel could not be found" )
 
         def get_steering( self ):
-            return self.joy.get_axis( 0 ) ** 2
+            return square_signed( self.joy.get_axis( 0 ) )
 
         def get_throttle( self ):
             return round( (self.joy.get_axis( 2 ) - 1) / -2, 2 )
@@ -146,7 +149,7 @@ class LogitechFormulaForceRXInput( UserInput ):
                 raise InputDeviceUnavailable( "Logitech Formula Force RX racing wheel could not be found" )
 
         def get_steering( self ):
-            return self.joy.get_axis( 0 ) ** 2
+            return square_signed( self.joy.get_axis( 0 ) )
 
         def get_throttle( self ):
             axis = self.joy.get_axis( 1 )
