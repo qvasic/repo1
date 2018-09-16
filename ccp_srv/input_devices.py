@@ -103,8 +103,7 @@ def get_angle( x, y ):
 class StickAngle:
     """State class that keeps track of how many times gamepad stick was rotated."""
 
-    def __init__( self, max_angle, treshold_min, treshold_max ):
-        self.max_angle = max_angle
+    def __init__( self, treshold_min, treshold_max ):
         self.treshold_min = treshold_min
         self.treshold_max = treshold_max
 
@@ -113,6 +112,16 @@ class StickAngle:
         self.rotations_offset_angle = 0
 
     def update_angle( self, x, y ):
+        """Initially does not track angle.
+        If dist is below treshold_min - returns 0.
+        If dist is below treshold_max and does not track - returns 0.
+        If dist is above trashold_max - starts or continues to track angle, and returns that angle.
+        If dist is between treshold_min and treshold_max and tracks - returns current angle, but
+        proportional to its position between tresholds (this is done so it does not snap to zero
+        immediatelly once stick is let go).
+        If dist is below treshold_min and tracks - stops tracking.
+        """
+
         import math
 
         dist = math.sqrt( x**2 + y**2 )
@@ -141,15 +150,11 @@ class StickAngle:
         self.prev_angle = angle
 
         final_angle = angle + self.rotations_offset_angle - self.base_angle
-        if final_angle > self.max_angle:
-            final_angle = self.max_angle
-        elif final_angle < -self.max_angle:
-            final_angle = -self.max_angle
 
         if dist > self.treshold_max:
-            return final_angle / self.max_angle
+            return final_angle
         else:
-            return final_angle / self.max_angle * ( ( dist-self.treshold_min ) / ( self.treshold_max - self.treshold_min ) )
+            return final_angle * ( ( dist-self.treshold_min ) / ( self.treshold_max - self.treshold_min ) )
 
 
 def stick_axes_into_one_axis( x, y, turn_max, tresh_min, tresh_max ):
@@ -223,14 +228,18 @@ class MouseInput( UserInput ):
         self.center = 200, 200
         self.last_pos = 0, 0
 
-        self.angler = StickAngle( 720, 50, 100 )
+        self.angler = StickAngle( 50, 100 )
 
     def get_steering( self ):
-        #return stick_axes_into_one_axis( self.last_pos[0]-self.center[0],
-        #                                 self.last_pos[1]-self.center[1],
-        #                                 135, 40, 80 )
-        return self.angler.update_angle( self.last_pos[0]-self.center[0],
-                                         self.last_pos[1]-self.center[1] )
+        max_angle = 720
+        angle = self.angler.update_angle( self.last_pos[0]-self.center[0],
+                                          self.last_pos[1]-self.center[1] )
+        if angle > max_angle:
+            angle = max_angle
+        elif angle < -max_angle:
+            angle = -max_angle
+
+        return angle / max_angle
 
     def get_throttle( self ):
         return 0
