@@ -93,7 +93,8 @@ class VehicleDriver:
         wheels_color = (64, 92, 64)
         compass_color = (128, 128, 0)
 
-        surface = pygame.display.set_mode( ( 400, 165 ) )
+        # surface = pygame.display.set_mode( ( 400, 165 ) )
+        surface = pygame.display.set_mode( ( 400, 400 ) )
         printer = TextPrinter( surface, text_color, ( 150, 10 ) )
         vehicle = vehicle_phys.VehicleOnEarthSurface( )
 
@@ -117,7 +118,8 @@ class VehicleDriver:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return
-                user_input.process_pygame_event( event )
+                else:
+                    user_input.process_pygame_event( event )
 
 
             now = time.time( )

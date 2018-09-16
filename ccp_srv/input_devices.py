@@ -80,6 +80,110 @@ class KeyboardInput( UserInput ):
 
         return False
 
+def get_angle( x, y ):
+    """Returns angle between negative Y axis (going up) and vector (0,0)-(x,y).
+    Right halfplane (positive X) contain positive angles, left one (negative X) - negative.
+    Calling get_angle( 0,0 ) results in exception ValueError raised."""
+
+    if x == 0:
+        if y == 0:
+            raise ValueError( "get_angle( 0, 0 ) - "
+                              "angle between a line and a point is not defined" )
+        elif y < 0:
+            return 0
+        else:
+            return 180
+
+    import math
+    if x > 0:
+        return math.atan( y / x ) * ( 180 / math.pi ) + 90
+    else:
+        return -( math.atan( y / -x ) * ( 180 / math.pi ) + 90 )
+
+class StickAngle:
+    """State class that keeps track of how many times gamepad stick was rotated."""
+
+    def __init__( self, max_angle, treshold_min, treshold_max ):
+        self.max_angle = max_angle
+        self.treshold_min = treshold_min
+        self.treshold_max = treshold_max
+
+        self.prev_angle = None
+        self.base_angle = 0
+        self.rotations_offset_angle = 0
+
+    def update_angle( self, x, y ):
+        import math
+
+        dist = math.sqrt( x**2 + y**2 )
+
+        # if we're below treshold_min, or if we were below treshold
+        # and didn't go enough above treshold_max
+        if dist < self.treshold_min or dist < self.treshold_max and self.prev_angle is None:
+            self.prev_angle = None
+            return 0
+
+        # if we just went above treshold_max
+        if self.prev_angle is None:
+            self.prev_angle = self.base_angle = get_angle( x, y )
+            self.rotations_offset_angle = 0
+            return 0
+
+        # if we were and still are above tresholds
+        angle = get_angle( x, y )
+
+        if self.prev_angle > 0 and angle < 0 and self.prev_angle - angle > angle+360 - self.prev_angle:
+            self.rotations_offset_angle += 360
+
+        if self.prev_angle < 0 and angle > 0 and angle - self.prev_angle > self.prev_angle - (angle-360):
+            self.rotations_offset_angle -= 360
+
+        self.prev_angle = angle
+
+        final_angle = angle + self.rotations_offset_angle - self.base_angle
+        if final_angle > self.max_angle:
+            final_angle = self.max_angle
+        elif final_angle < -self.max_angle:
+            final_angle = -self.max_angle
+
+        if dist > self.treshold_max:
+            return final_angle / self.max_angle
+        else:
+            return final_angle / self.max_angle * ( ( dist-self.treshold_min ) / ( self.treshold_max - self.treshold_min ) )
+
+
+def stick_axes_into_one_axis( x, y, turn_max, tresh_min, tresh_max ):
+    """Maps two axes from a stick into one axis.
+    If you turn stick turn_max degrees to the left - result is -1.
+    if you turn stick turn_max degrees to the right - result is +1.
+    If distance from center to stick position is less than tresh_min - result is 0.
+    If that distance is between tresh_min and tresh_max - result is somewhere between 0 and value
+    corresponding to current turn of the stick, depending how far that distance is from the center.
+    If that distance is more than tresh_max - result is full value of the current turn.
+    """
+
+    if x == 0:
+        return 0
+
+    import math
+
+    dist = math.sqrt( x**2 + y**2 )
+
+    if dist <= tresh_min:
+        return 0
+
+    turn_angle = get_angle( x, y )
+
+    if turn_angle > turn_max:
+        turn_angle = turn_max
+    elif turn_angle < -turn_max:
+        turn_angle = -turn_max
+
+    if dist >= tresh_max:
+        return turn_angle / turn_max
+    else:
+        return turn_angle / turn_max * ( (dist-tresh_min) / (tresh_max-tresh_min) )
+
 class LogitechF310Input( UserInput ):
     def __init__( self ):
         import pygame
@@ -109,6 +213,35 @@ class LogitechF310Input( UserInput ):
             return 0
 
     def process_pygame_event( self, event ):
+        return False
+
+class MouseInput( UserInput ):
+    def __init__( self ):
+        self.center = 200, 200
+        self.last_pos = 0, 0
+
+        self.angler = StickAngle( 720, 50, 100 )
+
+    def get_steering( self ):
+        #return stick_axes_into_one_axis( self.last_pos[0]-self.center[0],
+        #                                 self.last_pos[1]-self.center[1],
+        #                                 135, 40, 80 )
+        return self.angler.update_angle( self.last_pos[0]-self.center[0],
+                                         self.last_pos[1]-self.center[1] )
+
+    def get_throttle( self ):
+        return 0
+
+    def get_brake( self ):
+        return 0
+
+    def process_pygame_event( self, event ):
+        import pygame
+
+        if event.type == pygame.MOUSEMOTION:
+            self.last_pos = event.pos
+            return True
+
         return False
 
 class LogitechFormulaForceEXInput( UserInput ):
@@ -171,7 +304,8 @@ def get_available_input( ):
         except InputDeviceUnavailable:
             continue
     else:
-        initialized_input = KeyboardInput( )
+        # initialized_input = KeyboardInput( )
+        initialized_input = MouseInput( )
 
     return initialized_input
 
