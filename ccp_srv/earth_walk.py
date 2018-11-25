@@ -125,88 +125,96 @@ def dist_and_brng( lat1, lng1, lat2, lng2 ):
 
 ################################################################################
 
-def selftest():
-    print( __file__, __doc__, "doing self-testing", sep="\n" )
+import unittest
+cos_45 = math.cos( math.pi/4 )
 
-    from testing import test_returns, test_raises, CompareFloatSeq
+class EarthWalkUnitTests ( unittest.TestCase ):
+    def __init__( self, second ):
+        unittest.TestCase.__init__( self, second )
+        self.AlmostEqual_places = 12
 
-    failed = 0
-    float_seq_cmp = CompareFloatSeq( 12 )
-    cos_45 = math.cos( math.pi/4 )
+    def assertSequenceAlmostEqual( self, seq1, seq2, places=None, msg=None, delta=None ):
+        """Compares sequences, each element is rounded before comparing."""
+        if places is not None and "AlmostEqual_places" in self.__dict__:
+            places = self.AlmostEqual_places
+        for elem1, elem2 in zip( seq1, seq2 ):
+            self.assertAlmostEqual( elem1, elem2, places=places, msg=msg, delta=delta )
 
-    ret_cases = (
-        ( angle, (1,0),     0 ),
-        ( angle, (1,1),     45 ),
-        ( angle, (0,1),     90 ),
-        ( angle, (-1,1),    135 ),
-        ( angle, (-1,0),    180 ),
-        ( angle, (-1,-1),   225 ),
-        ( angle, (0,-1),    270 ),
-        ( angle, (1,-1),    315 ),
+    def test_angle( self ):
+        self.assertEqual( angle( 1, 0 ), 0 )
+        self.assertEqual( angle( 1, 0 ), 0 )
+        self.assertEqual( angle( 1, 1 ), 45 )
+        self.assertEqual( angle( 0, 1 ), 90 )
+        self.assertEqual( angle( -1, 1 ), 135 )
+        self.assertEqual( angle( -1, 0 ), 180 )
+        self.assertEqual( angle( -1, -1 ), 225 )
+        self.assertEqual( angle( 0, -1 ), 270 )
+        self.assertEqual( angle( 1, -1 ), 315 )
 
-        ( length, (1,0),    1 ),
-        ( length, (0,-2),   2 ),
-        ( length, (cos_45, cos_45), 1 ),
-        ( length, (1,2),    2.23606797749979 ),
+        self.assertRaises( ValueError, angle, 0, 0 )
 
-        ( coords, (0, 1),   (1, 0),     float_seq_cmp ),
-        ( coords, (45, 1),  (cos_45, cos_45), float_seq_cmp ),
-        ( coords, (90, 1),  (0, 1),     float_seq_cmp ),
-        ( coords, (180, 1), (-1, 0),    float_seq_cmp ),
-        ( coords, (270, 1), (0, -1),    float_seq_cmp ),
-        ( coords, (315+720, 1), (cos_45, -cos_45), float_seq_cmp ),
+    def test_length( self ):
+        self.assertEqual( length( 0, 0 ), 0 )
+        self.assertEqual( length( 1, 0 ), 1 )
+        self.assertEqual( length( 0, -2 ), 2 )
+        self.assertEqual( length( cos_45, cos_45 ), 1 )
+        self.assertEqual( length( 1, 2 ), 2.23606797749979 )
 
-        ( rotate, ( 1, 0, 90 ), ( 0, 1 ), float_seq_cmp ),
-        ( rotate, ( 0, 1, -90 ), ( 1, 0 ), float_seq_cmp ),
-        ( rotate, ( 2, 0, 45 ), (2*cos_45, 2*cos_45 ), float_seq_cmp ),
-        ( rotate, ( 2, 0, -45 ), (2*cos_45, -2*cos_45 ), float_seq_cmp ),
+    def test_coords( self ):
+        self.assertEqual( coords( 0, 1 ), (1, 0) )
+        self.assertSequenceAlmostEqual( coords( 45, 1 ), (cos_45, cos_45) )
+        self.assertSequenceAlmostEqual( coords( 90, 1 ), (0, 1) )
+        self.assertSequenceAlmostEqual( coords( 180, 1 ), (-1, 0) )
+        self.assertSequenceAlmostEqual( coords( 270, 1 ), (0, -1) )
+        self.assertSequenceAlmostEqual( coords( 315+720, 1 ), (cos_45, -cos_45) )
 
-        ( geo_to_ecef, ( 0, 0 ), ( 1, 0, 0 ) ),
-        ( geo_to_ecef, ( 0, 90 ), ( 0, 1, 0 ), float_seq_cmp ),
-        ( geo_to_ecef, ( 90, 0 ), ( 0, 0, 1 ), float_seq_cmp ),
-        ( geo_to_ecef, ( 90, 180 ), ( 0, 0, 1 ), float_seq_cmp ),
-        ( geo_to_ecef, ( 90, 213 ), ( 0, 0, 1 ), float_seq_cmp ),
-        ( geo_to_ecef, ( 45, 90 ), ( 0, cos_45, cos_45 ), float_seq_cmp ),
-        ( geo_to_ecef, ( 45, 180 ), ( -cos_45, 0, cos_45 ), float_seq_cmp ),
-        ( geo_to_ecef, ( -45, 180 ), ( -cos_45, 0, -cos_45 ), float_seq_cmp ),
-        ( geo_to_ecef, ( 45, -90 ), ( 0, -cos_45, cos_45 ), float_seq_cmp ),
-        ( geo_to_ecef, ( 45, 45 ), ( cos_45**2, cos_45**2, cos_45 ), float_seq_cmp ),
+    def test_rotate( self ):
+        self.assertSequenceAlmostEqual( rotate( 1, 0, 0 ), ( 1, 0 ) )
+        self.assertSequenceAlmostEqual( rotate( 1, 0, 90 ), ( 0, 1 ) )
+        self.assertSequenceAlmostEqual( rotate( 0, 1, -90 ), ( 1, 0 ) )
+        self.assertSequenceAlmostEqual( rotate( 2, 0, 45 ), (2*cos_45, 2*cos_45 ) )
+        self.assertSequenceAlmostEqual( rotate( 2, 0, -45 ), (2*cos_45, -2*cos_45 ) )
 
-        ( ecef_to_geo, ( 1, 0, 0 ), ( 0, 0 ) ),
-        ( ecef_to_geo, ( 0, 1, 0 ), ( 0, 90 ) ),
-        ( ecef_to_geo, ( 0, 0, 1 ), ( 90, 0 ) ),
-        ( ecef_to_geo, ( 0, 0, -1 ), ( -90, 0 ) ),
-        ( ecef_to_geo, ( -cos_45**2, -cos_45**2, -cos_45 ), ( -45, -135 ) ),
+    def test_geo_to_ecef( self ):
+        self.assertSequenceAlmostEqual( geo_to_ecef( 0, 0 ), ( 1, 0, 0 ) )
+        self.assertSequenceAlmostEqual( geo_to_ecef( 0, 90 ), ( 0, 1, 0 ) )
+        self.assertSequenceAlmostEqual( geo_to_ecef( 90, 0 ), ( 0, 0, 1 ) )
+        self.assertSequenceAlmostEqual( geo_to_ecef( 90, 180 ), ( 0, 0, 1 ) )
+        self.assertSequenceAlmostEqual( geo_to_ecef( 90, 213 ), ( 0, 0, 1 ) )
+        self.assertSequenceAlmostEqual( geo_to_ecef( 45, 90 ), ( 0, cos_45, cos_45 ) )
+        self.assertSequenceAlmostEqual( geo_to_ecef( 45, 180 ), ( -cos_45, 0, cos_45 ) )
+        self.assertSequenceAlmostEqual( geo_to_ecef( -45, 180 ), ( -cos_45, 0, -cos_45 ) )
+        self.assertSequenceAlmostEqual( geo_to_ecef( 45, -90 ), ( 0, -cos_45, cos_45 ) )
+        self.assertSequenceAlmostEqual( geo_to_ecef( 45, 45 ), ( cos_45**2, cos_45**2, cos_45 ) )
 
-        ( step, ( 0, 0, 0, 45 ), ( 45, 0 ), float_seq_cmp ),
-        ( step, ( 0, 45, 0, 10 ), ( 10, 45 ), float_seq_cmp ),
-        ( step, ( 0, 45, 270, 10 ), ( 0, 35 ), float_seq_cmp ),
-        ( step, ( 0, 0, 30, 90 ), ( 60, 90 ), float_seq_cmp ),
-        ( step, ( 30, -90, 90, 90 ), ( 0, 0 ), float_seq_cmp ),
+    def test_ecef_go_geo( self ):
+        self.assertSequenceAlmostEqual( ecef_to_geo( 1, 0, 0 ), ( 0, 0 ) )
+        self.assertSequenceAlmostEqual( ecef_to_geo( 0, 1, 0 ), ( 0, 90 ) )
+        self.assertSequenceAlmostEqual( ecef_to_geo( 0, 0, 1 ), ( 90, 0 ) )
+        self.assertSequenceAlmostEqual( ecef_to_geo( 0, 0, -1 ), ( -90, 0 ) )
+        self.assertSequenceAlmostEqual( ecef_to_geo( -cos_45**2, -cos_45**2, -cos_45 ),
+                                        ( -45, -135 ) )
 
-        ( dist_and_brng, ( 0, 0, 0, 45 ), ( 45, 90 ), float_seq_cmp ),
-        ( dist_and_brng, ( 0, 0, 0, -5 ), ( 5, 270 ), float_seq_cmp ),
-        ( dist_and_brng, ( 10, 0, -10, 0 ), ( 20, 180 ), float_seq_cmp ),
-    )
+    def test_step( self ):
+        self.assertSequenceAlmostEqual( step( 0, 0, 0, 45 ), ( 45, 0 ) )
+        self.assertSequenceAlmostEqual( step( 0, 45, 0, 10 ), ( 10, 45 ) )
+        self.assertSequenceAlmostEqual( step( 0, 45, 270, 10 ), ( 0, 35 ) )
+        self.assertSequenceAlmostEqual( step( 0, 0, 30, 90 ), ( 60, 90 ) )
+        self.assertSequenceAlmostEqual( step( 30, -90, 90, 90 ), ( 0, 0 ) )
+        self.assertRaises( ValueError, step, 90, 180, 0, 45 )
+        self.assertRaises( ValueError, step, -90, 180, 0, 45 )
 
-    failed += test_returns( ret_cases )
 
-    exc_cases = (
-        ( angle,            (0,0),                  ValueError ),
-        ( step,             ( 90, 180, 0, 45 ),     ValueError ),
-        ( step,             ( -90, 180, 0, 45 ),    ValueError ),
-        ( dist_and_brng,    ( 90, 0, 0, 0 ),        ValueError ),
-        ( dist_and_brng,    ( -90, 0, 0, 0 ),       ValueError ),
-        ( dist_and_brng,    ( 10, 10, 10, 10 ),     ValueError ),
-        ( dist_and_brng,    ( -10, 10, 10, -170 ),  ValueError ),
-        ( dist_and_brng,    ( -10, -30, 10, 150 ),  ValueError ),
-    )
-    failed += test_raises( exc_cases )
-
-    if failed:
-        print( "\nselftest: THERE ARE {} FAILED CASES\a\n".format( failed ) )
-    else:
-        print( "\nselftest: ok\n" )
+    def test_dist_and_brng( self ):
+        self.assertSequenceAlmostEqual( dist_and_brng( 0, 0, 0, 45 ), ( 45, 90 ) )
+        self.assertSequenceAlmostEqual( dist_and_brng( 0, 0, 0, -5 ), ( 5, 270 ) )
+        self.assertSequenceAlmostEqual( dist_and_brng( 10, 0, -10, 0 ), ( 20, 180 ) )
+        self.assertRaises( ValueError, dist_and_brng, 90, 0, 0, 0 )
+        self.assertRaises( ValueError, dist_and_brng, -90, 0, 0, 0 )
+        self.assertRaises( ValueError, dist_and_brng, 10, 10, 10, 10 )
+        self.assertRaises( ValueError, dist_and_brng, -10, 10, 10, -170 )
+        self.assertRaises( ValueError, dist_and_brng, -10, -30, 10, 150 )
 
 if __name__ == "__main__":
-    selftest()
+    unittest.main( )
+
