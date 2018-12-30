@@ -25,6 +25,8 @@ class TextPrinter:
         self.x, self.y = self.start
         self.line_height = 15
 
+####################################################################################################
+
 def sum_coords( *coords ):
     """Returns sum of all coords passed here - expects subscribeable objects with indeces 0 and 1."""
     sum = [ 0, 0 ]
@@ -73,6 +75,8 @@ def draw_compass( surface, color, bearing_deg ):
             to = sum_coords( coords( m-bearing_deg-90, r+l/2 ), center )
             pygame.draw.line( surface, color, fr, to, th )
 
+####################################################################################################
+
 class VehicleDriver:
     def __init__( self, coords_setter_callback=None ):
         self.update_coords = coords_setter_callback
@@ -98,7 +102,7 @@ class VehicleDriver:
         printer = TextPrinter( surface, text_color, ( 150, 10 ) )
         vehicle = vehicle_phys.VehicleOnEarthSurface( )
 
-        user_input = input_devices.get_available_input( )
+        user_input = input_devices.get_available_input( lambda: vehicle.speed_m_s == 0 )
 
         if start_coords is None:
             # san francisco
@@ -121,11 +125,11 @@ class VehicleDriver:
                 else:
                     user_input.process_pygame_event( event )
 
-
             now = time.time( )
             vehicle.move( now-last_move_time, user_input.get_steering( ),
-                                              user_input.get_throttle( ),
-                                              user_input.get_brake( ) )
+                          -user_input.get_throttle( ) if user_input.is_reversed( )
+                                                    else user_input.get_throttle( ),
+                          user_input.get_brake( ) )
             last_move_time = now
 
             surface.fill( (0, 0, 0) )
@@ -134,7 +138,9 @@ class VehicleDriver:
             draw_compass( surface, compass_color, vehicle.bearing_deg )
 
             printer.reset( )
-            printer.print_line( "throttle:  {:.2f}".format( user_input.get_throttle( ) ) )
+            printer.print_line( "throttle:  {:.2f} {}"
+                                    .format( user_input.get_throttle( ),
+                                             "R" if user_input.is_reversed( ) else " " ) )
             printer.print_line( "brake:     {:.2f}".format( user_input.get_brake( ) ) )
             printer.print_line( "steering: {:5.2f}".format( user_input.get_steering( ) ) )
             printer.print_line( "" )
@@ -147,9 +153,12 @@ class VehicleDriver:
             pygame.display.flip( )
 
             if self.update_coords:
-                self.update_coords( vehicle.lat, vehicle.lng, vehicle.speed_m_s, vehicle.bearing_deg )
+                self.update_coords( vehicle.lat, vehicle.lng,
+                                    vehicle.speed_m_s, vehicle.bearing_deg )
 
             time.sleep( 1/refresh_rate )
+
+####################################################################################################
 
 class DumpCoordsWithFreq:
     """Creates callable object. Can be called with positional info,
@@ -169,6 +178,7 @@ class DumpCoordsWithFreq:
             print( lat, lng, 0, bearing, speed_m_s, flush=True )
             self.next_dump_timestamp += self.interval
 
+####################################################################################################
 
 def main( ):
     d = VehicleDriver( DumpCoordsWithFreq( 1 ) )

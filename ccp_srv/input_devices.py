@@ -15,14 +15,18 @@ class UserInput:
         pass
     def get_brake( self ):
         pass
+    def is_reversed( self ):
+        return False
     def process_pygame_event( self, event ):
         pass
 
 class KeyboardInput( UserInput ):
     """Input from keyboard."""
-    def __init__( self ):
+    def __init__( self, can_reverse=None ):
         import pygame.key
         pygame.key.set_repeat( 200, 100 )
+        self.can_reverse = can_reverse
+        self.reversed = False
 
         self.steering = 0
         self.throttle = 0
@@ -30,6 +34,9 @@ class KeyboardInput( UserInput ):
 
         self.step_big = 0.1
         self.step_small = 0.01
+
+    def is_reversed( self ):
+        return self.reversed
 
     def get_steering( self ):
         return self.steering
@@ -76,6 +83,10 @@ class KeyboardInput( UserInput ):
                     return True
                 elif event.key == pygame.K_UP:
                     self.throttle = change_value( self.throttle, ctrl_step, 0, 1 )
+                    return True
+                elif event.key == pygame.K_r:
+                    if self.can_reverse is None or self.can_reverse( ):
+                        self.reversed = not self.reversed
                     return True
 
         return False
@@ -193,8 +204,10 @@ def square_signed( n ):
     return n * abs( n )
 
 class LogitechF310Input( UserInput ):
-    def __init__( self ):
+    def __init__( self, can_reverse ):
         import pygame
+        self.can_reverse = can_reverse
+        self.reversed = False
         for i in range( pygame.joystick.get_count( ) ):
             self.joy = pygame.joystick.Joystick( i )
             if self.joy.get_name( ) == "Controller (Gamepad F310)":
@@ -202,6 +215,9 @@ class LogitechF310Input( UserInput ):
                 return
         else:
             raise InputDeviceUnavailable( "Logitech F310 gamepad could not be found" )
+
+    def is_reversed( self ):
+        return self.reversed
 
     def get_steering( self ):
         return square_signed( self.joy.get_axis( 0 ) )
@@ -221,10 +237,18 @@ class LogitechF310Input( UserInput ):
             return 0
 
     def process_pygame_event( self, event ):
+        import pygame
+
+        if ( event.type == pygame.JOYBUTTONDOWN and event.joy == self.joy.get_id( )
+                                                                            and event.button == 5 ):
+            if self.can_reverse is None or self.can_reverse( ):
+                self.reversed = not self.reversed
+
+            return True
         return False
 
 class MouseInput( UserInput ):
-    def __init__( self ):
+    def __init__( self, can_reverse ):
         self.center = 200, 200
         self.last_pos = 0, 0
 
@@ -257,8 +281,12 @@ class MouseInput( UserInput ):
         return False
 
 class LogitechFormulaForceEXInput( UserInput ):
-        def __init__( self ):
+        def __init__( self, can_reverse ):
             import pygame
+
+            self.can_reverse = can_reverse
+            self.reversed = False
+
             for i in range( pygame.joystick.get_count( ) ):
                 self.joy = pygame.joystick.Joystick( i )
                 if self.joy.get_name( ) == "Logitech Formula Force EX USB":
@@ -266,6 +294,9 @@ class LogitechFormulaForceEXInput( UserInput ):
                     return
             else:
                 raise InputDeviceUnavailable( "Logitech Formula Force EX USB racing wheel could not be found" )
+
+        def is_reversed( self ):
+            return self.reversed
 
         def get_steering( self ):
             return square_signed( self.joy.get_axis( 0 ) )
@@ -277,11 +308,22 @@ class LogitechFormulaForceEXInput( UserInput ):
             return round( (self.joy.get_axis( 3 ) - 1) / -2, 2 )
 
         def process_pygame_event( self, event ):
+            import pygame
+
+            if ( event.type == pygame.JOYBUTTONDOWN and event.joy == self.joy.get_id( )
+                                                                            and event.button == 4 ):
+                if self.can_reverse is None or self.can_reverse( ):
+                    self.reversed = not self.reversed
+                return True
+
             return False
 
 class LogitechFormulaForceRXInput( UserInput ):
-        def __init__( self ):
+        def __init__( self, can_reverse ):
             import pygame
+
+            self.can_reverse = can_reverse
+            self.reversed = False
             for i in range( pygame.joystick.get_count( ) ):
                 self.joy = pygame.joystick.Joystick( i )
                 if self.joy.get_name( ) == "Logitech Formula Force RX":
@@ -289,6 +331,9 @@ class LogitechFormulaForceRXInput( UserInput ):
                     return
             else:
                 raise InputDeviceUnavailable( "Logitech Formula Force RX racing wheel could not be found" )
+
+        def is_reversed( self ):
+            return self.reversed
 
         def get_steering( self ):
             return square_signed( self.joy.get_axis( 0 ) )
@@ -302,22 +347,30 @@ class LogitechFormulaForceRXInput( UserInput ):
             return round( axis if axis>0 else 0, 2 )
 
         def process_pygame_event( self, event ):
+            import pygame
+
+            if ( event.type == pygame.JOYBUTTONDOWN and event.joy == self.joy.get_id( )
+                                                                            and event.button == 4 ):
+                if self.can_reverse is None or self.can_reverse( ):
+                    self.reversed = not self.reversed
+
+                return True
             return False
 
-def get_available_input( ):
+def get_available_input( can_reverse ):
     input_classes = ( LogitechFormulaForceRXInput,
                       LogitechFormulaForceEXInput,
                       LogitechF310Input )
 
     for possible_input in input_classes:
         try:
-            initialized_input = possible_input( )
+            initialized_input = possible_input( can_reverse )
             break
         except InputDeviceUnavailable:
             continue
     else:
-        # initialized_input = KeyboardInput( )
-        initialized_input = MouseInput( )
+        initialized_input = KeyboardInput( can_reverse )
+        # initialized_input = MouseInput( )
 
     return initialized_input
 

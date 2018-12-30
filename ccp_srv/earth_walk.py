@@ -95,6 +95,8 @@ def step( lat, lng, brng, dist ):
     on the surface of the planet - one rad is one radius) in the compass direction brng.
     Done basically by recalculating coordinges with different origins - rotations."""
 
+    assert dist >= 0
+
     if lat == 90 or lat == -90:
         raise ValueError( "There is no one direction to north while being on a pole." )
 
