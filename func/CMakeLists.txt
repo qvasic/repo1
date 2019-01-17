@@ -34,6 +34,7 @@ endif()
 
 project( func )
 set( CMAKE_CXX_FLAGS "--std=c++11" )
-add_executable( ${PROJECT_NAME} main.cpp func.h )
+add_executable( ${PROJECT_NAME} main.cpp func.h CallableSignal.h CallableSignal.cpp )
 target_link_libraries( ${PROJECT_NAME} gtest_main )
+enable_testing( )
 add_test( NAME test_func COMMAND ${PROJECT_NAME} )

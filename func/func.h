@@ -17,7 +17,7 @@ public:
     func( ) = default;
 
     template <typename T>
-    func( T&& function_object )
+    explicit func( T&& function_object )
         : contained_function_object(
               new function_object_container< T >( std::forward<T>( function_object ) ) )
     {
@@ -42,6 +42,11 @@ public:
         }
 
         return contained_function_object->operator( )( arg );
+    }
+
+    explicit operator bool( ) const
+    {
+        return static_cast< bool >( contained_function_object );
     }
 
 private:
