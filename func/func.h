@@ -43,6 +43,7 @@ public:
         if ( !r.contained_function_object )
         {
             contained_function_object = nullptr;
+            return *this;
         }
 
         contained_function_object = r.contained_function_object->make_copy( );
@@ -53,7 +54,12 @@ public:
     func& operator=( func&& r ) = default;
 
     template <typename T>
-    func& operator=( const T& function_object );
+    func& operator=( const T& function_object )
+    {
+        contained_function_object = std::unique_ptr< function_object_container_interface >(
+                    new function_object_container< T >( function_object ) );
+        return *this;
+    }
 
     ~func( ) = default;
 

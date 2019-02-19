@@ -1,4 +1,3 @@
-#include <iostream>
 #include <gtest/gtest.h>
 #include "func.h"
 #include "CallableSignal.h"
@@ -35,7 +34,7 @@ void ASSERT_DOES_NOT_THROW( T& f, A ... arg )
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
+// =================================================================================================
 
 TEST( funcTests, DefaultConstructible )
 {
@@ -219,20 +218,38 @@ TEST( funcTests, CopyAssignableFromEmpty )
 
     first_func = second_func;
 
-    /*ASSERT_FALSE( first_func );
+    ASSERT_FALSE( first_func );
     ASSERT_FALSE( called );
     ASSERT_THROWS< q::bad_func_call >( first_func, 10 );
-    ASSERT_FALSE( called );*/
+    ASSERT_FALSE( called );
 }
 
-
-
-
-
-TEST( funcTests, Assignable )
+TEST( funcTests, AssignableFromCallableObject )
 {
-    ASSERT_TRUE( false );
+    CallableSignal called1;
+    q::func< void, int > func( [ &called1 ]( int ){ called1( ); } );
+
+    ASSERT_TRUE( func );
+    ASSERT_FALSE( called1 );
+    ASSERT_DOES_NOT_THROW( func, 10 );
+    ASSERT_TRUE( called1 );
+    called1.reset( );
+
+    CallableSignal called2;
+    func = [ &called2 ]( int ){ called2( ); };
+
+    ASSERT_TRUE( func );
+    ASSERT_FALSE( called1 );
+    ASSERT_FALSE( called2 );
+    ASSERT_DOES_NOT_THROW( func, 10 );
+    ASSERT_FALSE( called1 );
+    ASSERT_TRUE( called2 );
+    called1.reset( );
+    called2.reset( );
 }
+
+template <typename T>
+class WhatsMyT;
 
 int main( int argc, char** argv )
 {
