@@ -1,0 +1,26 @@
+#pragma once
+
+#include <string>
+#include <set>
+
+class ConsoleReaderListener
+{
+public:
+    virtual void on_new_line_read( const std::string& line ){ }
+    virtual ~ConsoleReaderListener( ) = default;
+};
+
+class ConsoleReader
+{
+public:
+    bool poll_input( );
+    void add_listener( ConsoleReaderListener* listener );
+    void remove_listener( ConsoleReaderListener* listener );
+
+private:
+    void notify_listeners( const std::string& new_line );
+
+private:
+    std::string m_unfinished_line;
+    std::set< ConsoleReaderListener* > m_listeners;
+};
