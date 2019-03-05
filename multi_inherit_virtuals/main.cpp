@@ -46,7 +46,7 @@ CommandLineWithStatus::set_status( const std::string& status )
     if ( m_prompt_mutex.try_lock( ) )
     {
         std::cout << '\r' << m_blank_line << '\r';
-        std::cout << status.substr( 0, m_status_length );
+        std::cout << status.substr( 0, m_status_length ) << std::flush;
         // exception safety?!
         m_prompt_mutex.unlock( );
     }
@@ -68,13 +68,6 @@ CommandLineWithStatus::wait_for_next_command( )
 
 int main( )
 {
-    for ( int i=0; i<200; ++i )
-    {
-        std::cout << '\r' << i;
-        std::this_thread::sleep_for( std::chrono::milliseconds( 10
-                                                                0 ) );
-    }
-
     CommandLineWithStatus command_line;
 
     std::atomic< bool > stop ( false );
