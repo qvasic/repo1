@@ -39,6 +39,7 @@ public:
 private:
     void clear_status_line( );
     void update_status_on_screen( const std::string& status );
+    void print_unprinted_messages_and_clear( );
 
 private:
     int m_status_length;
@@ -85,63 +86,47 @@ CommandLineInterface::update_status_on_screen( const std::string& status )
 void
 CommandLineInterface::set_status( const std::string& status )
 {
+    std::unique_lock< std::mutex > io_lock( m_io_mutex, std::try_to_lock );
+    std::lock_guard< std::mutex > data_lock( m_data_mutex );
+
+    if ( io_lock.owns_lock( ) )
     {
-        std::unique_lock< std::mutex > lock( m_io_mutex, std::try_to_lock );
-        if ( lock.owns_lock( ) )
-        {
-            update_status_on_screen( status );
-        }
+        clear_status_line( );
+        print_unprinted_messages_and_clear( );
+        update_status_on_screen( status );
     }
 
+    m_last_status = status;
+}
+
+void
+CommandLineInterface::print_unprinted_messages_and_clear( )
+{
+    if ( !m_unprinted_messages.empty( ) )
     {
-        std::lock_guard< std::mutex > lock( m_data_mutex );
-
-        // print unprinted messages?!
-
-        /*
-
-! message #1
-! message #2
-! message #3
-! message #5
-! message #6
-! message #7
-! message #8
-! message #9
-
-
-
-
-! message #0
-! message #4
-! message #72
-! message #80
-! message #173
-
-
-
-
-*/
-
-        m_last_status = status;
+        for ( const auto& unprinted_message : m_unprinted_messages )
+        {
+            std::cout << unprinted_message << std::endl;
+        }
+        m_unprinted_messages.clear( );
     }
 }
 
 void
 CommandLineInterface::print_message( const std::string& message )
 {
-    std::unique_lock< std::mutex > lock( m_io_mutex, std::try_to_lock );
-    if ( lock.owns_lock( ) )
+    std::unique_lock< std::mutex > io_lock( m_io_mutex, std::try_to_lock );
+    std::lock_guard< std::mutex > data_lock( m_data_mutex );
+
+    if ( io_lock.owns_lock( ) )
     {
         clear_status_line( );
+        print_unprinted_messages_and_clear( );
         std::cout << message << std::endl;
-
-        std::lock_guard< std::mutex > lock( m_data_mutex );
         update_status_on_screen( m_last_status );
     }
     else
     {
-        std::lock_guard< std::mutex > lock( m_data_mutex );
         m_unprinted_messages.push_back( message );
     }
 }
@@ -154,19 +139,20 @@ CommandLineInterface::wait_for_next_command( )
 
     {
         std::lock_guard< std::mutex > io_lock( m_io_mutex );
+
+        {
+            std::lock_guard< std::mutex > data_lock( m_data_mutex );
+            print_unprinted_messages_and_clear( );
+        }
+
         std::cout << m_prompt;
         std::getline( std::cin, command );
 
-        std::lock_guard< std::mutex > data_lock( m_data_mutex );
-        if ( !m_unprinted_messages.empty( ) )
         {
-            for ( const auto& unprinted_message : m_unprinted_messages )
-            {
-                std::cout << unprinted_message << std::endl;
-            }
-            m_unprinted_messages.clear( );
+            std::lock_guard< std::mutex > data_lock( m_data_mutex );
+            print_unprinted_messages_and_clear( );
+            update_status_on_screen( m_last_status );
         }
-        update_status_on_screen( m_last_status );
     }
 
     return command;
@@ -189,7 +175,7 @@ vdem::CommandLineInterface command_line;
         for ( size_t i = 0; !stop; ++i )
         {
             command_line.set_status( "status: " + std::to_string( i ) );
-            std::this_thread::sleep_for( std::chrono::milliseconds( 2000 ) );
+            std::this_thread::sleep_for( std::chrono::milliseconds( 1500 ) );
         }
     };
     std::thread status_thread( status_routine );
@@ -198,7 +184,7 @@ vdem::CommandLineInterface command_line;
     {
         for ( size_t i = 0; !stop; ++i )
         {
-            command_line.print_message( "! message #" + std::to_string( i ) );
+            command_line.print_message( "M message #" + std::to_string( i ) );
             std::this_thread::sleep_for( std::chrono::milliseconds( 7000 ) );
         }
     };
@@ -209,8 +195,13 @@ vdem::CommandLineInterface command_line;
         std::string command = command_line.wait_for_next_command( );
         if ( command == "stop" )
         {
+			command_line.print_message( "stopping and exiting..." );
             break;
         }
+		else
+		{
+			command_line.print_message( "W unknown command" );
+		}
     }
 
     stop = true;
