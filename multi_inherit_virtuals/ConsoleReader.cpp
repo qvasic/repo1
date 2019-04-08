@@ -3,6 +3,11 @@
 #include <iostream>
 #include <algorithm>
 
+ConsoleReader::ConsoleReader( vdem::CommandLineInterface& cli )
+    : m_cli( cli )
+{
+}
+
 void
 ConsoleReader::add_listener( ConsoleReaderListener* listener )
 {
@@ -15,32 +20,22 @@ ConsoleReader::remove_listener( ConsoleReaderListener* listener )
     m_listeners.erase( listener );
 }
 
-bool
-ConsoleReader::poll_input( )
+void
+ConsoleReader::run( )
 {
-    constexpr size_t input_buffer_size = 100;
-    char input_buffer[ input_buffer_size ] = "";
+    m_cli.print_message( "enter stop to stop" );
 
-    const size_t characters_read = std::cin.readsome( input_buffer, input_buffer_size-1 );
-    input_buffer[ characters_read ] = '\0';
-    m_unfinished_line += input_buffer;
-
-    for ( ;; )
+    for ( ; ; )
     {
-        auto newline_position = std::find( std::begin( m_unfinished_line ),
-                                           std::end( m_unfinished_line ),
-                                           '\n' );
+        std::string command = m_cli.wait_for_next_command( );
 
-        if ( newline_position == std::end( m_unfinished_line ) )
+        if ( command == "stop" || m_cli.is_eof( ) )
         {
             break;
         }
 
-        notify_listeners( std::string( std::begin( m_unfinished_line ), newline_position ) );
-        m_unfinished_line = std::string( newline_position+1, std::end( m_unfinished_line ) );
+        notify_listeners( command );
     }
-
-    return !std::cin.eof( );
 }
 
 void

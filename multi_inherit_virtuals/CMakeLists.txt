@@ -7,5 +7,6 @@ endif( UNIX )
 
 add_executable( multi_inherit_virtuals main.cpp
                 ConsoleReader.cpp ConsoleReader.h
+                CommandLineInterface.h CommandLineInterface.cpp
               )
 

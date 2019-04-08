@@ -1,5 +1,7 @@
 #pragma once
 
+#include "CommandLineInterface.h"
+
 #include <string>
 #include <set>
 
@@ -13,7 +15,10 @@ public:
 class ConsoleReader
 {
 public:
-    bool poll_input( );
+    ConsoleReader( vdem::CommandLineInterface& cli );
+
+    void run( );
+
     void add_listener( ConsoleReaderListener* listener );
     void remove_listener( ConsoleReaderListener* listener );
 
@@ -21,6 +26,7 @@ private:
     void notify_listeners( const std::string& new_line );
 
 private:
+    vdem::CommandLineInterface& m_cli;
     std::string m_unfinished_line;
-    std::set< ConsoleReaderListener* > m_listeners;
+    std::set< ConsoleReaderListener* > m_listeners; // not owned
 };
