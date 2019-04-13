@@ -15,9 +15,21 @@ ConsoleReader::add_listener( ConsoleReaderListener* listener )
 }
 
 void
+ConsoleReader::add_listener( ConsoleReaderAlternativeListener* listener )
+{
+    m_alternative_listeners.insert( listener );
+}
+
+void
 ConsoleReader::remove_listener( ConsoleReaderListener* listener )
 {
     m_listeners.erase( listener );
+}
+
+void
+ConsoleReader::remove_listener( ConsoleReaderAlternativeListener* listener )
+{
+    m_alternative_listeners.erase( listener );
 }
 
 void
@@ -47,4 +59,12 @@ ConsoleReader::notify_listeners( const std::string& new_line )
     };
 
     std::for_each( std::begin( m_listeners ), std::end( m_listeners ), call_listener );
+
+    auto call_alternative_listener = [ &new_line ]( ConsoleReaderAlternativeListener* listener_ptr )
+    {
+        listener_ptr->on_new_line_read( listener_ptr, new_line );
+    };
+
+    std::for_each( std::begin( m_alternative_listeners ), std::end( m_alternative_listeners ),
+                   call_alternative_listener );
 }
