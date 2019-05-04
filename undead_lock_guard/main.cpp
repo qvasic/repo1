@@ -94,13 +94,17 @@ undead_lock_guard::is_deadlocked( std::thread::id locking_thread_id, void* mutex
     for ( ;; )
     {
         auto locked_mutex_iter = m_locked_mutexes.find( mutex_to_lock );
-        if ( locked_mutex_iter != m_locked_mutexes.end( )
-             && locked_mutex_iter->second == locking_thread_id )
+        if ( locked_mutex_iter == m_locked_mutexes.end( ) )
+        {
+            return false;
+        }
+
+        if ( locked_mutex_iter->second == locking_thread_id )
         {
             return true;
         }
 
-        auto waiting_thread = m_waiting_threads.find( m_locked_mutexes[ mutex_to_lock ] );
+        auto waiting_thread = m_waiting_threads.find( locked_mutex_iter->second );
         if ( waiting_thread == m_waiting_threads.end( ) )
         {
             return false;
