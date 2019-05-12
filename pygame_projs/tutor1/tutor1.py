@@ -60,7 +60,7 @@ class ProjectilesList(list):
 class DirectionInput:
     def __init__( self ):
         import pygame
-        self.joy = pygame.joystick.Joystick( 1 )
+        self.joy = pygame.joystick.Joystick( 0 )
         self.joy.init()
 
     def get_vector( self ):
