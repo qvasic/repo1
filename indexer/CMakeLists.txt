@@ -1,0 +1,5 @@
+cmake_minimum_required( VERSION 3.5 )
+project( indexer )
+set( CMAKE_CXX_STANDARD 11 )
+add_executable( indexer main.cpp )
+target_link_libraries( indexer sqlite3 boost_system )
