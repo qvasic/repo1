@@ -75,22 +75,35 @@ class BallSpawner( game_abstracts.GameObj ):
             self.elapsed -= self.timeout
         return True
 
-class F310GamepadInput( game_abstracts.PlayerInput ):
+class GamepadInput( game_abstracts.PlayerInput ):
     def __init__( self ):
         import pygame.joystick
 
         pygame.joystick.init()
-        for i in range( pygame.joystick.get_count() ):
-            j = pygame.joystick.Joystick( i )
-            if j.get_name().find( "F310" ) != -1:
-                j.init()
-                self.joy = j
-                break
-        else:
-            raise RuntimeError( "Logitech F310 gamepad not found" )
+        if pygame.joystick.get_count() == 0:
+            raise RuntimeError("No game controller present.")
 
-    def get_direction( self ):
-        return self.joy.get_axis( 0 ), self.joy.get_axis( 1 )
+        self.joy = pygame.joystick.Joystick( 0 )
+        self.joy.init( )
+
+        self.stick_axis_threshold = 0.15
+
+        return
+
+    def get_left_stick_direction( self ):
+        return game_utils.apply_threshold( ( self.joy.get_axis( 0 ), self.joy.get_axis( 1 ) ),
+                                           self.stick_axis_threshold )
+
+    def get_right_stick_direction( self ):
+        return game_utils.apply_threshold( ( self.joy.get_axis( 4 ), self.joy.get_axis( 3 ) ),
+                                           self.stick_axis_threshold )
+
+    def get_right_trigger( self ):
+        axis = self.joy.get_axis( 2 )
+        if axis > 0:
+            return 0
+
+        return abs( axis )
 
     def get_button_a( self ):
         return self.joy.get_button( 0 )
@@ -172,13 +185,13 @@ class PlayerShipObj( game_abstracts.GameObj ):
     def move_and_draw( self, time, surf ):
         import pygame
 
-        input_direction = self.input.get_direction()
+        input_direction = self.input.get_right_stick_direction()
         if abs(input_direction[0])>0.1 or abs(input_direction[1])>0.1:
             self.orientation = input_direction
 
-        if self.input.get_button_a():
-            self.inertia = [ i + ( t * time * self.full_throttle )
-                             for i, t in zip( self.inertia, self.orientation ) ]
+        # self.inertia = [i + (t * time * self.full_throttle)
+        self.inertia = [ (t * self.full_throttle)
+                                        for i, t in zip(self.inertia, self.input.get_left_stick_direction())]
 
         self.contain_inside_screen( surf.get_size() )
 
@@ -189,7 +202,7 @@ class PlayerShipObj( game_abstracts.GameObj ):
             pygame.draw.lines( surf, self.color, False, l, 1 )
 
         self.time_since_last_shot += time
-        if self.input.get_button_b() and self.time_since_last_shot > 1/self.fire_rate:
+        if self.input.get_right_trigger() > 0.5 and self.time_since_last_shot > 1/self.fire_rate:
 
             proj_init_pos = game_utils.rotate_vec( self.get_gun_port(),
                                                    self.orientation, self.coords )
@@ -217,7 +230,7 @@ class StubGameLoop( game_abstracts.GameLoop ):
         self.add_game_obj( BallSpawner( self, 1 ) )
         """
 
-        gamepad = F310GamepadInput()
+        gamepad = GamepadInput()
         player_ship = PlayerShipObj( (200, 200), gamepad, self )
         self.add_game_obj( player_ship )
 

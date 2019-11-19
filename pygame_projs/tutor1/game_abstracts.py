@@ -95,7 +95,13 @@ class GameObj:
         return True
 
 class PlayerInput:
-    def get_direction( self ) -> tuple:
+    def get_left_stick_direction( self ) -> tuple:
+        pass
+
+    def get_right_stick_direction( self ) -> tuple:
+        pass
+
+    def get_right_trigger( self ) -> int:
         pass
 
     def get_button_a( self ) -> bool:

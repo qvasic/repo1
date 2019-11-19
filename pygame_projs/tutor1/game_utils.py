@@ -19,3 +19,10 @@ def redirect_vec( v_from, v_to ):
     Basically it builds new vector of length of v_from in the direction v_to."""
     coef = length( v_from )/length( v_to )
     return [ c*coef for c in v_to ]
+
+def apply_threshold( seq, threshold ):
+    """Apply threshold to sequence seq. If an absolute value of an element is less then threshold - then it becomes 0,
+    otherwise value is returned unchanged."""
+
+    return tuple( v if abs( v ) >= threshold else 0 for v in seq )
+
