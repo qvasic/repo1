@@ -6,6 +6,7 @@ class BouncingBall( game_abstracts.GameObj ):
         self.coords = list( coords )
         self.vector = list( vector )
         self.color = color
+        self.size = 2
 
     def bounce_off_screen( self, screen_size ):
         if self.coords[0] < 0:
@@ -29,7 +30,7 @@ class BouncingBall( game_abstracts.GameObj ):
 
         self.coords = [ c+m*time for c, m in zip( self.coords, self.vector ) ]
         self.bounce_off_screen( surf.get_size() )
-        pygame.draw.circle( surf, self.color, tuple( map( int, self.coords ) ), 2 )
+        pygame.draw.circle( surf, self.color, tuple( map( int, self.coords ) ), self.size )
 
         return True
 
@@ -41,22 +42,31 @@ class BouncingBallWithLives( BouncingBall ):
     def bounce_off_screen( self, screen_size ):
         prev_vec = list( self.vector )
         BouncingBall.bounce_off_screen( self, screen_size )
+        """
         if prev_vec[0] != self.vector[0]:
             self.lives -= 1
         if prev_vec[1] != self.vector[1]:
-            self.lives -= 1
+            self.lives -= 1"""
 
     def move_and_draw( self, time, surf ) -> bool:
         import pygame
         BouncingBall.move_and_draw( self, time, surf )
-        pygame.draw.circle( surf, self.color, tuple( map( int, self.coords ) ), self.lives if self.lives>0 else 1 )
+        pygame.draw.circle( surf, self.color, tuple( map( int, self.coords ) ), self.lives if self.lives > 0 else 1 )
         return self.lives > 0
+
+    def check_projectile_impact( self, start, end ):
+        dist = game_utils.length( ( end[ 0 ] - self.coords[ 0 ], end[ 1 ] - self.coords[ 1 ] ) )
+        if dist <= self.lives:
+            return dist
+
+    def do_projectile_impact(self):
+        self.lives -= 1
 
 class BallSpawner( game_abstracts.GameObj ):
     def __init__( self, looper, timeout ):
         self.looper = looper
         self.timeout = timeout
-        self.elapsed = 0
+        self.elapsed = timeout
 
     def move_and_draw( self, time, surf ) -> bool:
         from random import randrange
@@ -64,11 +74,11 @@ class BallSpawner( game_abstracts.GameObj ):
         w, h = surf.get_size()
 
         self.elapsed += time
-        if self.elapsed > self.timeout:
+        if self.elapsed >= self.timeout:
             self.looper.add_game_obj( BouncingBallWithLives( (randrange( w ), randrange( h ) ),
-                                                      (randrange( 50, 300 ), randrange( 50, 300 )),
+                                                      (randrange( 50, 100 ), randrange( 50, 100 )),
                                                       (randrange( 128, 256 ), randrange( 128, 256 ), randrange( 128, 256 )),
-                                                      randrange( 5, 15 )
+                                                      randrange( 10, 15 )
                                                     )
                              )
 
@@ -112,19 +122,32 @@ class GamepadInput( game_abstracts.PlayerInput ):
         return self.joy.get_button( 2 )
 
 class AutocanonProjectile( game_abstracts.GameObj ):
-    shape = ( ( (0, -2), (0, 2) ), )
-
-
+    shape = ( ( (0, -5), (0, 5) ), )
     color = ( 255, 255, 255 )
     velocity = 400
 
-    def __init__( self, coords, vector ):
+    def __init__( self, game_loop, coords, vector ):
+        self.game_loop = game_loop
         self.coords = coords
         self.vector = tuple( c*self.velocity for c in vector )
 
     def move_and_draw( self, time, surf ):
         import pygame
-        self.coords = tuple( c+v*time for c, v in zip( self.coords, self.vector ) )
+        next_coords = tuple( c+v*time for c, v in zip( self.coords, self.vector ) )
+
+        nearest_impact_obj = None
+        nearest_impact_dist = None
+        for obj in self.game_loop.get_obj_list( ):
+            impact_dist = obj.check_projectile_impact( self.coords, next_coords )
+            if impact_dist and ( not nearest_impact_obj or nearest_impact_dist > impact_dist ):
+                nearest_impact_obj = obj
+                nearest_impact_dist = impact_dist
+
+        if nearest_impact_obj:
+            nearest_impact_obj.do_projectile_impact( )
+            return False
+
+        self.coords = next_coords
 
         surfsize = surf.get_size()
         if ( self.coords[0] < 0 or self.coords[0] >= surfsize[0]
@@ -134,7 +157,6 @@ class AutocanonProjectile( game_abstracts.GameObj ):
         for l in self.shape:
             l = game_utils.position_polyline( l, self.vector, self.coords )
             pygame.draw.lines( surf, self.color, False, l, 2 )
-
 
         return True
 
@@ -155,7 +177,7 @@ class PlayerShipObj( game_abstracts.GameObj ):
     fire_rate = 20
     gun_ports = ( (-6, -5), (6, -5) )
 
-    def __init__( self, coords, input, looper ):
+    def __init__( self, coords, input, game_loop ):
         self.input = input
         self.coords = coords
         self.inertia = [ 0, 0 ]
@@ -163,7 +185,7 @@ class PlayerShipObj( game_abstracts.GameObj ):
         self.full_throttle = 300
         self.time_since_last_shot = 1
         self.cur_gun_port = 0
-        self.looper = looper
+        self.game_loop = game_loop
 
     def contain_inside_screen( self, size ):
         if self.coords[0] < self.screen_wall and self.inertia[0] < 0:
@@ -189,7 +211,6 @@ class PlayerShipObj( game_abstracts.GameObj ):
         if abs(input_direction[0])>0.1 or abs(input_direction[1])>0.1:
             self.orientation = input_direction
 
-        # self.inertia = [i + (t * time * self.full_throttle)
         self.inertia = [ (t * self.full_throttle)
                                         for i, t in zip(self.inertia, self.input.get_left_stick_direction())]
 
@@ -206,11 +227,12 @@ class PlayerShipObj( game_abstracts.GameObj ):
 
             proj_init_pos = game_utils.rotate_vec( self.get_gun_port(),
                                                    self.orientation, self.coords )
-            self.looper.add_game_obj( AutocanonProjectile( proj_init_pos,
-                                     game_utils.redirect_vec( (0,-1), self.orientation ) ) )
+            self.game_loop.add_game_obj( AutocanonProjectile( self.game_loop, proj_init_pos,
+                                         game_utils.redirect_vec( (0,-1), self.orientation ) ) )
             self.time_since_last_shot = 0
 
         return True
+
 
 class StubGameLoop( game_abstracts.GameLoop ):
     def __init__( self ):
@@ -219,24 +241,25 @@ class StubGameLoop( game_abstracts.GameLoop ):
 
         game_abstracts.GameLoop.__init__( self, ( w, h ), (0, 0, 0), 60, True )
 
-        """from random import randrange
-        for i in range( randrange( 10 )+10 ):
+        from random import randrange
+        for i in range( randrange( 5 )+5 ):
             self.add_game_obj( BouncingBall( (randrange( w ), randrange( h ) ),
                                              (randrange( 50, 400 ), randrange( 50, 400 )),
-                                             (randrange( 128, 256 ), randrange( 128, 256 ), randrange( 128, 256 ))
+                                             (randrange( 96, 128 ), randrange( 96, 128 ), randrange( 96, 128 ))
                                            )
                              )
 
-        self.add_game_obj( BallSpawner( self, 1 ) )
-        """
+        self.add_game_obj( BallSpawner( self, 5 ) )
 
         gamepad = GamepadInput()
         player_ship = PlayerShipObj( (200, 200), gamepad, self )
         self.add_game_obj( player_ship )
 
+
 def main():
     looper = StubGameLoop()
     looper.main_loop()
+
 
 if __name__ == "__main__":
     main()

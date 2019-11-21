@@ -1,3 +1,5 @@
+import unittest
+
 def position_polyline( polyline, orient=(0,-1), posit=(0,0) ):
     import pygame.math
     angle = -pygame.math.Vector2( orient ).angle_to( (0, -1) )
@@ -26,3 +28,60 @@ def apply_threshold( seq, threshold ):
 
     return tuple( v if abs( v ) >= threshold else 0 for v in seq )
 
+class point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
+    def __ne__(self, other):
+        return not self == other
+
+class line:
+    def __init__(self, p1, p2):
+        assert( p1 != p2 )
+
+        if p1.x == p2.x:
+            self.vertical = True
+            self.x = p1.x
+        else:
+            self.vertical = False
+            self.a = ( p1.y - p2.y ) / ( p1.x - p2.x )
+            self.b = p1.y - p1.x * self.a
+
+
+class TestPolylineProximityRoutines( unittest.TestCase ):
+    def test_valid_line(self):
+        l = line( point( 0, 0 ), point( 1, 0 ) )
+        self.assertEqual( l.vertical, False )
+        self.assertEqual( l.a, 0 )
+        self.assertEqual( l.b, 0 )
+
+        l = line( point( 0, 0 ), point( 1, 1 ) )
+        self.assertEqual( l.vertical, False )
+        self.assertEqual( l.a, 1 )
+        self.assertEqual( l.b, 0 )
+
+        l = line( point( 0, 2 ), point( 2, 1 ) )
+        self.assertEqual( l.vertical, False )
+        self.assertEqual( l.a, -0.5 )
+        self.assertEqual( l.b, 2 )
+
+        l = line( point( 1, 2 ), point( 2, 1 ) )
+        self.assertEqual( l.vertical, False )
+        self.assertEqual( l.a, -1 )
+        self.assertEqual( l.b, 3 )
+
+        l = line( point( 10, 2 ), point( 10, 10 ) )
+        self.assertEqual( l.vertical, True )
+        self.assertEqual( l.x, 10 )
+
+    def test_invalid_line(self):
+        with self.assertRaises( AssertionError ):
+            line( point( 0, 0 ), point( 0, 0 ) )
+
+
+if __name__ == "__main__":
+    unittest.main( )

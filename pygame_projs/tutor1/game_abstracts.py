@@ -81,6 +81,9 @@ if it is no longer exists, it is removed from the main list"""
     def add_game_obj( self, new_obj ):
         self.obj_list.append( new_obj )
 
+    def get_obj_list( self ):
+        return self.obj_list
+
 class GameObj:
     def move_and_draw( self, time, surf ) -> bool:
         """Move and redraw the object
@@ -93,6 +96,28 @@ class GameObj:
         Should return False if object ceased to exist
         """
         return True
+
+    def check_projectile_impact( self, start, end ):
+        """Checks whether projectile impacts the object.
+
+        Arguments:
+        start - projectile initial position
+        end   - projectile final position
+        If object is impacted - returns distance from point start to point of impact.
+        If object is not impacted - returns None.
+        """
+        pass
+
+    def do_projectile_impact( self ):
+        """Checks whether projectile impacts the object.
+
+        Arguments:
+        from - projectile initial position
+        to - projectile final position
+        If object is impacted - returns distance from point from to point of impact.
+        If object is not impacted - returns None.
+        """
+        pass
 
 class PlayerInput:
     def get_left_stick_direction( self ) -> tuple:
