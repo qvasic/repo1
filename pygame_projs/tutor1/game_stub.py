@@ -228,7 +228,7 @@ class PlayerShipObj( game_abstracts.GameObj ):
             proj_init_pos = game_utils.rotate_vec( self.get_gun_port(),
                                                    self.orientation, self.coords )
             self.game_loop.add_game_obj( AutocanonProjectile( self.game_loop, proj_init_pos,
-                                         game_utils.redirect_vec( (0,-1), self.orientation ) ) )
+                                         game_utils.redirect_vec( (0,-2), self.orientation ) ) )
             self.time_since_last_shot = 0
 
         return True
