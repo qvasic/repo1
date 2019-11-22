@@ -25,8 +25,12 @@ def redirect_vec( v_from, v_to ):
 def apply_threshold( seq, threshold ):
     """Apply threshold to sequence seq. If an absolute value of an element is less then threshold - then it becomes 0,
     otherwise value is returned unchanged."""
-
-    return tuple( v if abs( v ) >= threshold else 0 for v in seq )
+    less_than_threshold = True
+    for val in seq:
+        if abs( val ) >= threshold:
+            return seq
+    else:
+        return ( 0, ) * len( seq )
 
 class Point:
     def __init__(self, x, y):
@@ -68,6 +72,13 @@ class Circle:
         self.center = center
         self.radius = radius
 
+    def __eq__(self, other):
+        return self.center == other.center and self.radius == other.radius
+
+    def __ne__(self, other):
+        return not self == other
+
+
 def intersect_lines( line1, line2 ):
     """Calculates point of intersection of two lines.
     If lines do not intersect - returns None.
@@ -88,6 +99,10 @@ class TestPolylineProximityRoutines( unittest.TestCase ):
         self.assertFalse( Point( 1, 1 ) == Point( 1, 1.01 ) )
         self.assertFalse( Point( 1, 1 ) == Point( 1.1, 1 ) )
 
+        self.assertFalse( Point( 1, 1 ) != Point( 1, 1 ) )
+        self.assertTrue( Point( 1, 1 ) != Point( 1, 1.01 ) )
+        self.assertTrue( Point( 1, 1 ) != Point( 1.1, 1 ) )
+
     def test_line_eq_ne_operators( self ):
         self.assertTrue( Line( Point( 10, 0 ), Point( 10, 10 )  ) == Line( Point( 10, 0 ), Point( 10, 10 ) ) )
         self.assertFalse( Line( Point( 10, 0 ), Point( 10, 10 )  ) == Line( Point( 9, 0 ), Point( 9, 10 ) ) )
@@ -98,8 +113,25 @@ class TestPolylineProximityRoutines( unittest.TestCase ):
         self.assertFalse( Line( Point( 10, 0 ), Point( 11, 1 )  ) == Line( Point( 12, 2 ), Point( 10, 0.2 ) ) )
         self.assertFalse( Line( Point( 10, 0 ), Point( 11, 1 )  ) == Line( Point( 10, 1 ), Point( 11, 2 ) ) )
 
+        self.assertFalse( Line( Point( 10, 0 ), Point( 10, 10 )  ) != Line( Point( 10, 0 ), Point( 10, 10 ) ) )
+        self.assertTrue( Line( Point( 10, 0 ), Point( 10, 10 )  ) != Line( Point( 9, 0 ), Point( 9, 10 ) ) )
+
+        self.assertTrue( Line( Point( 10, 0 ), Point( 11, 1 )  ) != Line( Point( 10, 0 ), Point( 10, 10 ) ) )
+
+        self.assertFalse( Line( Point( 10, 0 ), Point( 11, 1 )  ) != Line( Point( 12, 2 ), Point( 10, 0 ) ) )
+        self.assertTrue( Line( Point( 10, 0 ), Point( 11, 1 )  ) != Line( Point( 12, 2 ), Point( 10, 0.2 ) ) )
+        self.assertTrue( Line( Point( 10, 0 ), Point( 11, 1 )  ) != Line( Point( 10, 1 ), Point( 11, 2 ) ) )
+
     def test_circle_eq_ne_operators( self ):
-        self.assertTrue( False )
+        self.assertTrue( Circle( Point( 10, 10 ), 10 ) == Circle( Point( 10, 10 ), 10 ) )
+
+        self.assertFalse( Circle( Point( 10, 10 ), 10 ) == Circle( Point( 10, 10.1 ), 10 ) )
+        self.assertFalse( Circle( Point( 10, 10 ), 10 ) == Circle( Point( 10, 10 ), 9.9 ) )
+
+        self.assertFalse( Circle( Point( 10, 10 ), 10 ) != Circle( Point( 10, 10 ), 10 ) )
+
+        self.assertTrue( Circle( Point( 10, 10 ), 10 ) != Circle( Point( 10, 10.1 ), 10 ) )
+        self.assertTrue( Circle( Point( 10, 10 ), 10 ) != Circle( Point( 10, 10 ), 9.9 ) )
 
     def test_valid_line(self):
         l = Line( Point( 0, 0 ), Point( 1, 0 ) )
