@@ -76,7 +76,7 @@ class BallSpawner( game_abstracts.GameObj ):
         self.elapsed += time
         if self.elapsed >= self.timeout:
             self.looper.add_game_obj( BouncingBallWithLives( (randrange( w ), randrange( h ) ),
-                                                      (randrange( 50, 100 ), randrange( 50, 100 )),
+                                                      (randrange( 25, 50 ), randrange( 25, 50 )),
                                                       (randrange( 128, 256 ), randrange( 128, 256 ), randrange( 128, 256 )),
                                                       randrange( 10, 15 )
                                                     )
