@@ -2,27 +2,24 @@ import game_abstracts
 import game_utils
 
 class BouncingBall( game_abstracts.GameObj ):
-    def __init__( self, coords, vector, color ):
+    def __init__( self, coords, vector, color, size = 2 ):
         self.coords = list( coords )
         self.vector = list( vector )
         self.color = color
-        self.size = 2
+        self.size = size
 
     def bounce_off_screen( self, screen_size ):
-        if self.coords[0] < 0:
-            self.coords[0] = -self.coords[0]
+        margin = self.size / 2
+        if self.coords[0] < margin:
             self.vector[0] = -self.vector[0]
 
-        if self.coords[0] >= screen_size[0]:
-            self.coords[0] = screen_size[0]-(self.coords[0]-screen_size[0])
+        if self.coords[0] >= screen_size[0] - margin:
             self.vector[0] = -self.vector[0]
 
-        if self.coords[1] < 0:
-            self.coords[1] = -self.coords[1]
+        if self.coords[1] < margin:
             self.vector[1] = -self.vector[1]
 
-        if self.coords[1] >= screen_size[1]:
-            self.coords[1] = screen_size[1]-(self.coords[1]-screen_size[1])
+        if self.coords[1] >= screen_size[1] - margin:
             self.vector[1] = -self.vector[1]
 
     def move_and_draw( self, time, surf ) -> bool:
@@ -36,36 +33,32 @@ class BouncingBall( game_abstracts.GameObj ):
 
 class BouncingBallWithLives( BouncingBall ):
     def __init__( self, coords, vector, color, lives ):
-        BouncingBall.__init__( self, coords, vector, color )
-        self.lives = lives
-
-    def bounce_off_screen( self, screen_size ):
-        prev_vec = list( self.vector )
-        BouncingBall.bounce_off_screen( self, screen_size )
-        """
-        if prev_vec[0] != self.vector[0]:
-            self.lives -= 1
-        if prev_vec[1] != self.vector[1]:
-            self.lives -= 1"""
+        BouncingBall.__init__( self, coords, vector, color, lives )
 
     def move_and_draw( self, time, surf ) -> bool:
         import pygame
         BouncingBall.move_and_draw( self, time, surf )
-        pygame.draw.circle( surf, self.color, tuple( map( int, self.coords ) ), self.lives if self.lives > 0 else 1 )
-        return self.lives > 0
+        return self.size > 3
 
     def check_projectile_impact( self, start, end ):
-        dist = game_utils.length( ( end[ 0 ] - self.coords[ 0 ], end[ 1 ] - self.coords[ 1 ] ) )
+        if self.size <= 0:
+            return
 
-        #intersections = game_utils.intersect_line_and_circle(
-        #    game_utils.Circle( game_utils.Point( self.coords[ 0 ], self.coords[ 1 ] ), self.lives ),
-        #    game_utils.Line(game_utils.Point(
+        start = game_utils.Point( start[ 0 ], start[ 1 ] )
+        end = game_utils.Point( end[ 0 ], end[ 1 ] )
+        center = game_utils.Point( self.coords[ 0 ], self.coords[ 1 ] )
 
-        if dist <= self.lives:
-            return dist
+        intersections = game_utils.intersect_line_segment_and_circle( game_utils.Circle( center, self.size ),
+                                                                      game_utils.LineSegment( start, end ) )
+
+        if len( intersections ) > 1:
+            return game_utils.distance( center, intersections[ 0 ] )
+
+        if len(intersections) == 1 and game_utils.distance( center, start ) > self.size:
+            return game_utils.distance(center, intersections[0])
 
     def do_projectile_impact(self):
-        self.lives -= 1
+        self.size -= 1
 
 class BallSpawner( game_abstracts.GameObj ):
     def __init__( self, looper, timeout ):

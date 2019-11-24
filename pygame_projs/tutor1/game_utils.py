@@ -63,6 +63,22 @@ class Line:
             self.a = ( p1.y - p2.y ) / ( p1.x - p2.x )
             self.b = p1.y - p1.x * self.a
 
+    def perpendicular(self, point):
+        """Returns new line object, which is perpendicular to this one and goes through point."""
+        perpendicular = Line(Point(0, 0), Point(0, 1))
+        if self.vertical:
+            perpendicular.vertical = False
+            perpendicular.a = 0
+            perpendicular.b = point.y
+        elif self.a == 0:
+            perpendicular.x = point.x
+        else:
+            perpendicular.vertical = False
+            perpendicular.a = -1 / self.a
+            perpendicular.b = point.y - perpendicular.a * point.x
+
+        return perpendicular
+
     def __contains__(self, point):
         assert( type( point ) is Point )
 
@@ -192,18 +208,7 @@ def intersect_line_and_circle( circle, line ):
         return equidistant_points_on_line( line, circle.center, circle.radius )
 
     # more general case: create perpendicular to line that goes through circle.center
-    perpendicular = Line( Point( 0, 0 ), Point( 0, 1 ) )
-    if line.vertical:
-        perpendicular.vertical = False
-        perpendicular.a = 0
-        perpendicular.b = circle.center.y
-    elif line.a == 0:
-        perpendicular.x = circle.center.x
-    else:
-        perpendicular.vertical = False
-        perpendicular.a = -1 / line.a
-        perpendicular.b = circle.center.y - perpendicular.a * circle.center.x
-
+    perpendicular =  line.perpendicular( circle.center )
     closest_point = intersect_lines( line, perpendicular )
     distance_to_closest_point = distance( closest_point, circle.center )
 
@@ -236,7 +241,6 @@ def intersect_line_segment_and_circle( circle, segment ):
         return segment_circle_intersection
     else:
         return ( segment_circle_intersection[ 1 ], segment_circle_intersection[ 0 ] )
-    # return tuple( filter( lambda x : x in segment, line_circle_intersection ) )
 
 class TestPolylineProximityRoutines( unittest.TestCase ):
     def test_point_eq_ne_operators( self ):
@@ -460,6 +464,19 @@ class TestPolylineProximityRoutines( unittest.TestCase ):
                                                              LineSegment( Point( -2, 0 ), Point( -1, 5 ) ) ),
                           tuple( ) )
 
+    def test_perpendicular(self):
+        self.assertEqual( Line( Point( 0, 0 ), Point( 0, 1 ) ).perpendicular( Point( 20, 20 ) ),
+                          Line( Point( 1, 20 ), Point( 0, 20 ) ) )
+        self.assertEqual( Line( Point( 0, 0 ), Point( 0, 1 ) ).perpendicular( Point( 20, 0 ) ),
+                          Line( Point( 1, 0 ), Point( 0, 0 ) ) )
+
+        self.assertEqual( Line( Point( 0, 0 ), Point( 200, 0 ) ).perpendicular( Point( 20, 20 ) ),
+                          Line( Point( 20, 1 ), Point( 20, 0 ) ) )
+        self.assertEqual( Line( Point( 0, 0 ), Point( 200, 0 ) ).perpendicular( Point( 10000, 20 ) ),
+                          Line( Point( 10000, 1 ), Point( 10000, 0 ) ) )
+
+        self.assertEqual( Line( Point( 2, 8 ), Point( -1, 0 ) ).perpendicular( Point( 0.5, 4 ) ),
+                          Line( Point( 0.5, 4 ), Point( 4.5, 2.5 ) ) )
 
 if __name__ == "__main__":
     unittest.main( )
