@@ -79,6 +79,11 @@ class Line:
 
         return perpendicular
 
+    def mirror(self, point):
+        """Returns new Point object which is reflected (mirrored) against this line."""
+        projection = intersect_lines( self, self.perpendicular( point ) )
+        return Point( 2 * projection.x - point.x, 2 * projection.y - point.y )
+
     def __contains__(self, point):
         assert( type( point ) is Point )
 
@@ -223,6 +228,14 @@ def intersect_line_and_circle( circle, line ):
 def intersect_line_segment_and_circle( circle, segment ):
     """Returns iterable of Points where line segment and circle intersects.
     Points are sorted by their distance to segment.start - meaning the closest will be first."""
+
+    # check whether their bounding boxes even intersect
+    if ( ( max( segment.start.x, segment.end.x ) < circle.center.x - circle.radius
+                     or circle.center.x + circle.radius < min( segment.start.x, segment.end.x ) )
+                   and ( max( segment.start.y, segment.end.y ) < circle.center.y - circle.radius
+                         or circle.center.y + circle.radius < min( segment.start.y, segment.end.y ) ) ):
+        return tuple( )
+
     line_circle_intersection = intersect_line_and_circle( circle, segment )
     segment_circle_intersection = tuple( filter( lambda x : x in segment, line_circle_intersection ) )
 
@@ -477,6 +490,15 @@ class TestPolylineProximityRoutines( unittest.TestCase ):
 
         self.assertEqual( Line( Point( 2, 8 ), Point( -1, 0 ) ).perpendicular( Point( 0.5, 4 ) ),
                           Line( Point( 0.5, 4 ), Point( 4.5, 2.5 ) ) )
+
+    def test_mirror(self):
+        self.assertEqual(Line(Point(0, 0), Point(0, 1)).mirror(Point(20, 20)),
+                         Point(-20, 20))
+        self.assertEqual(Line(Point(0, 0), Point(2, 1)).mirror(Point(10, 10)),
+                         Point(14, 2))
+        self.assertEqual(Line(Point(1, 1), Point(3, 0)).mirror(Point(11, 11)),
+                         Point(-1, -13))
+
 
 if __name__ == "__main__":
     unittest.main( )

@@ -27,18 +27,13 @@ class BouncingBall( game_abstracts.GameObj ):
 
         self.coords = [ c+m*time for c, m in zip( self.coords, self.vector ) ]
         self.bounce_off_screen( surf.get_size() )
-        pygame.draw.circle( surf, self.color, tuple( map( int, self.coords ) ), self.size )
+        pygame.draw.circle( surf, self.color, tuple( map( int, self.coords ) ), int( self.size ) )
 
         return True
 
-class BouncingBallWithLives( BouncingBall ):
-    def __init__( self, coords, vector, color, lives ):
-        BouncingBall.__init__( self, coords, vector, color, lives )
-
-    def move_and_draw( self, time, surf ) -> bool:
-        import pygame
-        BouncingBall.move_and_draw( self, time, surf )
-        return self.size > 3
+class ImpactableBouncingBall( BouncingBall ):
+    def __init__( self, coords, vector, color, size = 2 ):
+        BouncingBall.__init__( self, coords, vector, color, size )
 
     def check_projectile_impact( self, start, end ):
         if self.size <= 0:
@@ -51,14 +46,22 @@ class BouncingBallWithLives( BouncingBall ):
         intersections = game_utils.intersect_line_segment_and_circle( game_utils.Circle( center, self.size ),
                                                                       game_utils.LineSegment( start, end ) )
 
-        if len( intersections ) > 1:
-            return game_utils.distance( center, intersections[ 0 ] )
+        if len( intersections ) > 1 or ( len(intersections) == 1 and game_utils.distance( center, start ) > self.size ):
+            impact_point = intersections[0]
+            impact_surface = game_utils.Line( impact_point, center ).perpendicular( impact_point )
+            return ( impact_point, impact_surface )
 
-        if len(intersections) == 1 and game_utils.distance( center, start ) > self.size:
-            return game_utils.distance(center, intersections[0])
+class ImpactableBouncingBallWithLives( ImpactableBouncingBall ):
+    def __init__( self, coords, vector, color, lives ):
+        ImpactableBouncingBall.__init__( self, coords, vector, color, lives )
+
+    def move_and_draw( self, time, surf ) -> bool:
+        #import pygame
+        BouncingBall.move_and_draw( self, time, surf )
+        return self.size > 3
 
     def do_projectile_impact(self):
-        self.size -= 1
+        self.size -= 0.4
 
 class BallSpawner( game_abstracts.GameObj ):
     def __init__( self, looper, timeout ):
@@ -73,11 +76,12 @@ class BallSpawner( game_abstracts.GameObj ):
 
         self.elapsed += time
         if self.elapsed >= self.timeout:
-            self.looper.add_game_obj( BouncingBallWithLives( (randrange( w ), randrange( h ) ),
-                                                      (randrange( 25, 50 ), randrange( 25, 50 )),
-                                                      (randrange( 128, 256 ), randrange( 128, 256 ), randrange( 128, 256 )),
-                                                      randrange( 10, 15 )
-                                                    )
+            self.looper.add_game_obj( ImpactableBouncingBallWithLives( (randrange( w ), randrange( h ) ),
+                                                                       (randrange( 25, 50 ), randrange( 25, 50 )),
+                                                                       (randrange( 128, 256 ), randrange( 128, 256 ),
+                                                                        randrange( 128, 256 )),
+                                                                       randrange( 15, 25 )
+                                                                     )
                              )
 
             self.elapsed -= self.timeout
@@ -134,16 +138,25 @@ class AutocanonProjectile( game_abstracts.GameObj ):
         next_coords = tuple( c+v*time for c, v in zip( self.coords, self.vector ) )
 
         nearest_impact_obj = None
+        nearest_impact_data = None
         nearest_impact_dist = None
         for obj in self.game_loop.get_obj_list( ):
-            impact_dist = obj.check_projectile_impact( self.coords, next_coords )
-            if impact_dist and ( not nearest_impact_obj or nearest_impact_dist > impact_dist ):
-                nearest_impact_obj = obj
-                nearest_impact_dist = impact_dist
+            impact_data = obj.check_projectile_impact( self.coords, next_coords )
+            if impact_data:
+                impact_dist = game_utils.distance( impact_data[ 0 ],
+                                                   game_utils.Point( self.coords[ 0 ], self.coords[ 1 ] ) )
+                if not nearest_impact_obj or nearest_impact_dist > impact_dist:
+                    nearest_impact_obj = obj
+                    nearest_impact_dist = impact_dist
+                    nearest_impact_data = impact_data
 
         if nearest_impact_obj:
             nearest_impact_obj.do_projectile_impact( )
-            return False
+            ricochet_position = nearest_impact_data[ 1 ].mirror( game_utils.Point( next_coords[ 0 ], next_coords[ 1 ] ) )
+            next_coords = [ ricochet_position.x, ricochet_position.y ]
+            nearest_impact_data[ 1 ].b = 0
+            ricochet_vector = nearest_impact_data[ 1 ].mirror( game_utils.Point( self.vector[ 0 ], self.vector[ 1 ] ) )
+            self.vector = [ ricochet_vector.x, ricochet_vector.y ]
 
         self.coords = next_coords
 
@@ -246,6 +259,15 @@ class StubGameLoop( game_abstracts.GameLoop ):
                                              (randrange( 96, 128 ), randrange( 96, 128 ), randrange( 96, 128 ))
                                            )
                              )
+
+        for i in range( 2 ):
+            self.add_game_obj( ImpactableBouncingBall( (randrange( w ), randrange( h ) ),
+                                                       (randrange( 25, 40 ), randrange( 25, 40 )),
+                                                       (randrange( 96, 128 ), randrange( 96, 128 ), randrange( 96, 128 )),
+                                                       35
+                                           )
+                             )
+
 
         self.add_game_obj( BallSpawner( self, 5 ) )
 
