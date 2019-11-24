@@ -56,6 +56,11 @@ class BouncingBallWithLives( BouncingBall ):
 
     def check_projectile_impact( self, start, end ):
         dist = game_utils.length( ( end[ 0 ] - self.coords[ 0 ], end[ 1 ] - self.coords[ 1 ] ) )
+
+        #intersections = game_utils.intersect_line_and_circle(
+        #    game_utils.Circle( game_utils.Point( self.coords[ 0 ], self.coords[ 1 ] ), self.lives ),
+        #    game_utils.Line(game_utils.Point(
+
         if dist <= self.lives:
             return dist
 
