@@ -125,7 +125,7 @@ class GamepadInput( game_abstracts.PlayerInput ):
 
 class AutocanonProjectile( game_abstracts.GameObj ):
     shape = ( ( (0, -5), (0, 5) ), )
-    color = ( 255, 255, 255 )
+    color = ( 255, 255, 64 )
     velocity = 400
 
     def __init__( self, game_loop, coords, vector ):
@@ -183,7 +183,7 @@ class PlayerShipObj( game_abstracts.GameObj ):
         ( (-7, 0), (-7, -5), (-6, -5), (-6, -1) ),
         ( (7, 0), (7, -5), (6, -5), (6, -1) ),
     )
-    color = (255, 255, 255)
+    color = (96, 192, 96)
     screen_wall = 30
     fire_rate = 20
     gun_ports = ( (-6, -5), (6, -5) )
@@ -252,6 +252,11 @@ class StubGameLoop( game_abstracts.GameLoop ):
 
         game_abstracts.GameLoop.__init__( self, ( w, h ), (0, 0, 0), 60, True )
 
+        gamepad = GamepadInput()
+        self.obj = PlayerShipObj((200, 200), gamepad, self)
+        player_ship = self.obj
+        self.add_game_obj( player_ship )
+
         from random import randrange
         for i in range( randrange( 5 )+5 ):
             self.add_game_obj( BouncingBall( (randrange( w ), randrange( h ) ),
@@ -270,10 +275,6 @@ class StubGameLoop( game_abstracts.GameLoop ):
 
 
         self.add_game_obj( BallSpawner( self, 5 ) )
-
-        gamepad = GamepadInput()
-        player_ship = PlayerShipObj( (200, 200), gamepad, self )
-        self.add_game_obj( player_ship )
 
 
 def main():

@@ -53,12 +53,11 @@ if it is no longer exists, it is removed from the main list"""
 
             self.surf.fill( self.background )
 
-            i=0
-            while i<len( self.obj_list ):
-                if self.obj_list[i].move_and_draw( move_time, self.surf ):
-                    i+=1
-                else:
-                    self.obj_list.pop( i )
+            i = len( self.obj_list )
+            while i > 0:
+                if not self.obj_list[ i - 1 ].move_and_draw( move_time, self.surf ):
+                    self.obj_list.pop(i - 1)
+                i -= 1
 
             if self.show_stats:
                 self.printer.reset()
