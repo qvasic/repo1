@@ -2,7 +2,7 @@ def calculate_power( x, y, size, N, E, E_piramid_sums, E_ldiagonal_sums, E_rdiag
     if size == 1:
         return E[y][x]
 
-    sum = E_piramid_sums[y+size-1][x] - E_piramid_sums[y-1][x+size-1] - E_piramid_sums[y-1][x-size-1]
+    sum = E_piramid_sums[y+size-1][x] - E_piramid_sums[y-1][x+size-1] - E_piramid_sums[y-1][x-size+1]
     if y - size >= 0:
         sum += E_piramid_sums[y - size][x]
     if x - size >= 0:
@@ -24,6 +24,7 @@ def find_most_power( N, E, E_piramid_sums, E_ldiagonal_sums, E_rdiagonal_sums ):
         for x in range( start, end ):
             for y in range( start, end ):
                 power = calculate_power( x, y, size, N, E, E_piramid_sums, E_ldiagonal_sums, E_rdiagonal_sums )
+                #print( "diamond x={} y={} size={} power={}".format( x, y, size, power ) )
                 if power > largest_power:
                     largest_power = power
 
@@ -103,11 +104,12 @@ def run_test( ):
         E_ldiagonal_sums.append(new_ldiagonal_sums)
         E_rdiagonal_sums.append(new_rdiagonal_sums)
 
-    print( find_most_power( N, E, E_piramid_sums, E_ldiagonal_sums, E_rdiagonal_sums ) )
+    
     #print( "E", *E, sep="\n" )
     #print( "E_piramid_sums", *E_piramid_sums, sep="\n" )
     #print("E_ldiagonal_sums", *E_ldiagonal_sums, sep="\n")
     #print("E_rdiagonal_sums", *E_rdiagonal_sums, sep="\n")
+    print( find_most_power( N, E, E_piramid_sums, E_ldiagonal_sums, E_rdiagonal_sums ) )
 
 
 def main():
