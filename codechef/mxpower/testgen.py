@@ -1,7 +1,6 @@
-def generate_worst_case_scenario( ):
+def generate_worst_case_scenario( N = 100, minmax_power = 9 ):
     from random import randint
-    N = 100
-    minmax = 10 ** 9
+    minmax = 10 ** minmax_power
 
     print( N )
     for n in range( N ):
@@ -9,5 +8,8 @@ def generate_worst_case_scenario( ):
 
 
 if __name__ == "__main__":
-    print( 1 )
-    generate_worst_case_scenario()
+    import sys
+    print( 20 )
+    for i in range( 1, 11 ):
+        generate_worst_case_scenario( i, 1 )
+        generate_worst_case_scenario( i, 1 )
