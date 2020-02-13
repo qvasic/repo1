@@ -78,6 +78,7 @@ def run_test( ):
     E_ldiagonal_sums.append( new_ldiagonal_sums )
     E_rdiagonal_sums.append(new_rdiagonal_sums)
 
+    # rest of the rows
     for n in range( 2, N ):
         E.append(tuple(int(e) for e in input().split()))
         assert (len(E[-1]) == N)
