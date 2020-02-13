@@ -9,7 +9,7 @@ def generate_worst_case_scenario( N = 100, minmax_power = 9 ):
 
 if __name__ == "__main__":
     import sys
-    T = 100
+    T = 3
     print( T )
     for i in range( 1, T+1 ):
-        generate_worst_case_scenario( 100 )
+        generate_worst_case_scenario( i*3, 1 )
