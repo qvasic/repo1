@@ -1,0 +1,12 @@
+{
+  "description" : [
+    "graph element contains nodes. each node has it's id, and a dictionary of outgoing connections.",
+    "node id it is connected to is key, value is the cost of that transition."
+  ],
+  "graph" : {
+    "0": {"1": 10, "2": 5},
+    "1": {"2": 5, "3": 7},
+    "2": {"3": 8},
+    "3": {}
+  }
+}
