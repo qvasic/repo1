@@ -16,6 +16,9 @@ def find_cheapest_path( graph, start_id, end_id ):
 
         connections = graph[ node_id ]
         for connected_node_id in connections:
+            if connected_node_id in current_path["path"]:
+                continue
+
             current_path["cost"] += connections[ connected_node_id ]
             current_path["path"].append( connected_node_id )
 
