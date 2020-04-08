@@ -22,12 +22,14 @@ def check_hit( pos, hit, hit_size ):
 class GraphEditor:
     def __init__(self):
         self.SAVE_FILE = "graphgen.json"
+
         self.VERTICE_SIZE = 4
         self.SELECTED_VERTICE_SIZE = 6
         self.HIT_SIZE = self.VERTICE_SIZE + 2
-        self.BLACK = pygame.Color('black')
-        self.BACKGROUND = pygame.Color('white')
-        self.RED = pygame.Color('red')
+
+        self.BACKGROUND_COLOR = pygame.Color('white')
+        self.VERTICE_COLOR = pygame.Color('red')
+        self.EDGE_COLOR = pygame.Color('black')
         self.UPDATE_RATE = 90
 
         self.alt_pressed = False
@@ -64,27 +66,26 @@ class GraphEditor:
     def draw_vertices(self, screen):
         for i in range( len( self.vertices ) ):
             vertice = self.vertices[i]
-            pygame.draw.circle(screen, self.RED, vertice,
+            pygame.draw.circle(screen, self.VERTICE_COLOR, vertice,
                                self.VERTICE_SIZE if i not in self.selected_vertices else self.SELECTED_VERTICE_SIZE)
 
     def draw_arrow(self, screen, start, end, bold = False):
-        EDGE_ANGLE = 25
-        EDGE_LENGTH = 9
-        EDGE_WIDTH = 1 if not bold else 2
-
-        #print( "draw arrow", start, end )
+        EDGE_ANGLE = 30
+        EDGE_LENGTH = 10
+        EDGE_WIDTH = 1 if not bold else 3
 
         if start == end:
             return
 
-        pygame.draw.line(screen, self.BLACK, start, end, EDGE_WIDTH )
+        pygame.draw.line(screen, self.EDGE_COLOR, start, end, EDGE_WIDTH )
         angle = geometrics.angle( start[0] - end[0], start[1] - end[1] )
-        for arrow_coords in ( end, ( ( end[0] + start[0] ) / 2, ( end[1] + start[1] ) / 2 ) ):
-            for edge_angle in ( EDGE_ANGLE, -EDGE_ANGLE ):
-                arrow_edge = geometrics.coords( angle + edge_angle, EDGE_LENGTH )
-                pygame.draw.line(screen, self.BLACK, arrow_coords,
-                                 ( arrow_edge[0] + arrow_coords[0],
-                                   arrow_edge[1] + arrow_coords[1] ), EDGE_WIDTH )
+
+        arrow_center_coords = ( (end[0] + start[0]) / 2, (end[1] + start[1]) / 2 )
+        for edge_angle in ( EDGE_ANGLE, -EDGE_ANGLE ):
+            arrow_edge = geometrics.coords( angle + edge_angle, EDGE_LENGTH )
+            pygame.draw.line(screen, self.EDGE_COLOR, arrow_center_coords,
+                             ( arrow_edge[0] + arrow_center_coords[0],
+                               arrow_edge[1] + arrow_center_coords[1] ), EDGE_WIDTH )
 
     def draw_edges(self, screen):
         for i in range( len( self.edges ) ):
@@ -150,6 +151,76 @@ class GraphEditor:
 
         return False
 
+    def handle_mouse_move(self, event):
+        if self.dragging_vertice_i is not None:
+            self.vertices[self.dragging_vertice_i] = list(event.pos)
+            self.redraw = True
+        elif self.dragging_new_edge_from_vertice_i is not None:
+            self.new_edge_end_pos = list(event.pos)
+            self.redraw = True
+
+    def handle_mouse_down(self, event):
+        if event.button == LEFT_MOUSE_BUTTON:
+            if self.alt_pressed:
+                self.vertices.append(list(event.pos))
+                self.redraw = True
+            elif self.ctrl_pressed:
+                vertice_i = self.find_vertice_by_pos(event.pos)
+                if vertice_i is not None:
+                    self.remove_vertice(vertice_i)
+                    self.selected_vertices.clear()
+                    self.path_edges.clear()
+                    self.redraw = True
+                else:
+                    edge_i = self.find_edge_by_center_pos(event.pos)
+                    if edge_i is not None:
+                        self.edges.pop(edge_i)
+                        self.redraw = True
+            elif self.shift_pressed:
+                vertice_i = self.find_vertice_by_pos(event.pos)
+                if vertice_i is not None:
+                    self.dragging_new_edge_from_vertice_i = vertice_i
+            else:
+                self.dragging_vertice_i = self.find_vertice_by_pos(event.pos)
+        elif event.button == RIGHT_MOUSE_BUTTON:
+            vertice_i = self.find_vertice_by_pos(event.pos)
+            if vertice_i is not None:
+                if len(self.selected_vertices) >= 2:
+                    self.selected_vertices.clear()
+                    self.path_edges.clear()
+                self.selected_vertices.append(vertice_i)
+
+                if len(self.selected_vertices) == 2:
+                    graph = self.generate_pathfinder_input_data()
+                    print(graph)
+
+                    time_start = time.time()
+                    path = pathfinder.find_cheapest_path_breadth(graph,
+                                                                 self.selected_vertices[0],
+                                                                 self.selected_vertices[1])
+                    time_end = time.time()
+
+                    print(path)
+                    print("pathfinding took", time_end - time_start)
+
+                    if path is not None and "path" in path and len(path["path"]) > 1:
+                        for i in range(len(path["path"]) - 1):
+                            self.path_edges.append([path["path"][i], path["path"][i + 1]])
+
+                self.redraw = True
+
+    def handle_mouse_up(self, event):
+        if event.button == LEFT_MOUSE_BUTTON:
+            self.dragging_vertice_i = None
+            if self.dragging_new_edge_from_vertice_i is not None:
+                end_vertice_i = self.find_vertice_by_pos(event.pos)
+                if end_vertice_i is not None and end_vertice_i != self.dragging_new_edge_from_vertice_i:
+                    new_edge = [self.dragging_new_edge_from_vertice_i, end_vertice_i]
+                    if new_edge not in self.edges:
+                        self.edges.append([self.dragging_new_edge_from_vertice_i, end_vertice_i])
+                self.dragging_new_edge_from_vertice_i = None
+                self.redraw = True
+
     def run(self):
         print( """brief help:
 alt+click: add new vertice
@@ -161,95 +232,35 @@ right-click: select a vertice as start or end
 
         pygame.init()
         pygame.display.set_caption("graph")
-        screen = pygame.display.set_mode((800, 600))
-        screen.fill(self.BACKGROUND)
+        screen = pygame.display.set_mode((1200, 800))
+        screen.fill(self.BACKGROUND_COLOR)
         self.draw_data( screen )
         pygame.display.flip()
 
         done = False
 
-        dragging_vertice_i = None
+        self.dragging_vertice_i = None
 
-        dragging_new_edge_from_vertice_i = None
-        new_edge_end_pos = None
+        self.dragging_new_edge_from_vertice_i = None
+        self.new_edge_end_pos = None
+
+        self.redraw = False
 
         while not done:
-            redraw = False
+            self.redraw = False
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     done = True
 
                 elif event.type == pygame.MOUSEMOTION:
-                    if dragging_vertice_i is not None:
-                        self.vertices[ dragging_vertice_i ] = list( event.pos )
-                        redraw = True
-                    elif dragging_new_edge_from_vertice_i is not None:
-                        new_edge_end_pos = list( event.pos )
-                        redraw = True
+                    self.handle_mouse_move( event )
 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == LEFT_MOUSE_BUTTON:
-                        if self.alt_pressed:
-                            self.vertices.append( list( event.pos ) )
-                            redraw = True
-                        elif self.ctrl_pressed:
-                            vertice_i = self.find_vertice_by_pos( event.pos )
-                            if vertice_i is not None:
-                                self.remove_vertice( vertice_i )
-                                self.selected_vertices.clear( )
-                                self.path_edges.clear( )
-                                redraw = True
-                            else:
-                                edge_i = self.find_edge_by_center_pos( event.pos )
-                                if edge_i is not None:
-                                    self.edges.pop( edge_i )
-                                    redraw = True
-                        elif self.shift_pressed:
-                            vertice_i = self.find_vertice_by_pos( event.pos )
-                            if vertice_i is not None:
-                                dragging_new_edge_from_vertice_i = vertice_i
-                        else:
-                            dragging_vertice_i = self.find_vertice_by_pos( event.pos )
-                    elif event.button == RIGHT_MOUSE_BUTTON:
-                        vertice_i = self.find_vertice_by_pos( event.pos )
-                        if vertice_i is not None:
-                            if len( self.selected_vertices ) >= 2:
-                                self.selected_vertices.clear( )
-                                self.path_edges.clear( )
-                            self.selected_vertices.append( vertice_i )
-
-                            if len( self.selected_vertices ) == 2:
-                                graph = self.generate_pathfinder_input_data()
-                                print( graph )
-
-                                time_start = time.time( )
-                                path = pathfinder.find_cheapest_path( graph,
-                                                                      self.selected_vertices[0],
-                                                                      self.selected_vertices[1] )
-                                time_end = time.time( )
-
-                                print( path )
-                                print( "pathfinding took", time_end - time_start )
-
-                                if path is not None and "path" in path and len( path["path"] ) > 1:
-                                    for i in range( len( path["path"] ) - 1 ):
-                                        self.path_edges.append( [ path["path"][ i ], path["path"][ i + 1 ] ] )
-
-                            redraw = True
+                    self.handle_mouse_down( event )
 
                 elif event.type == pygame.MOUSEBUTTONUP:
-                    if event.button == LEFT_MOUSE_BUTTON:
-                        dragging_vertice_i = None
-                        if dragging_new_edge_from_vertice_i is not None:
-                            end_vertice_i = self.find_vertice_by_pos( event.pos )
-                            if end_vertice_i is not None and end_vertice_i != dragging_new_edge_from_vertice_i:
-                                new_edge = [ dragging_new_edge_from_vertice_i, end_vertice_i ]
-                                if new_edge not in self.edges:
-                                    self.edges.append( [ dragging_new_edge_from_vertice_i, end_vertice_i ] )
-                            dragging_new_edge_from_vertice_i = None
-                            redraw = True
-
+                    self.handle_mouse_up( event )
 
                 elif self.handle_alt_shift_ctrl( event ):
                     pass
@@ -257,15 +268,15 @@ right-click: select a vertice as start or end
             if done:
                 break
 
-            if not redraw:
+            if not self.redraw:
                 time.sleep( 1/self.UPDATE_RATE )
                 continue
 
-            screen.fill(self.BACKGROUND)
+            screen.fill(self.BACKGROUND_COLOR)
             self.draw_data( screen )
-            if dragging_new_edge_from_vertice_i is not None and new_edge_end_pos:
-                self.draw_arrow( screen, self.vertices[ dragging_new_edge_from_vertice_i ],
-                                 new_edge_end_pos )
+            if self.dragging_new_edge_from_vertice_i is not None and self.new_edge_end_pos:
+                self.draw_arrow( screen, self.vertices[ self.dragging_new_edge_from_vertice_i ],
+                                 self.new_edge_end_pos )
             pygame.display.flip()
 
         self.save_graph()
