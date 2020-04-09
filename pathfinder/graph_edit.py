@@ -4,6 +4,7 @@ import math
 import geometrics
 import time
 import pathfinder
+import sys
 
 LEFT_MOUSE_BUTTON = 1
 RIGHT_MOUSE_BUTTON = 3
@@ -20,8 +21,8 @@ def check_hit( pos, hit, hit_size ):
     return False
 
 class GraphEditor:
-    def __init__(self):
-        self.SAVE_FILE = "graphgen.json"
+    def __init__(self, save_file = None):
+        self.SAVE_FILE = "graph_edit.json" if not save_file else save_file
 
         self.VERTICE_SIZE = 4
         self.SELECTED_VERTICE_SIZE = 6
@@ -195,7 +196,7 @@ class GraphEditor:
                     print(graph)
 
                     time_start = time.time()
-                    path = pathfinder.find_cheapest_path_breadth(graph,
+                    path = pathfinder.find_cheapest_path(graph,
                                                                  self.selected_vertices[0],
                                                                  self.selected_vertices[1])
                     time_end = time.time()
@@ -283,5 +284,8 @@ right-click: select a vertice as start or end
         pygame.quit()
 
 if __name__ == "__main__":
-    editor = GraphEditor( )
+    if len( sys.argv ) > 1:
+        editor = GraphEditor( sys.argv[1] )
+    else:
+        editor = GraphEditor( )
     editor.run( )
