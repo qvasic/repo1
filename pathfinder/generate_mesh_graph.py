@@ -40,7 +40,7 @@ def generate_mesh_graph( width, height, start_pos = [ 10, 10 ], spacing = 30, rn
 
 
 def main( ):
-    graph = generate_mesh_graph( 17, 11, ( 30, 30 ), 70 )
+    graph = generate_mesh_graph( 34, 22, ( 30, 30 ), 35 )
     json.dump( graph, sys.stdout )
 
 

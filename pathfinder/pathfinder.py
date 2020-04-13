@@ -1,6 +1,41 @@
 import json
 import unittest
 
+def find_smallest_by_value( container, get_value = lambda x : x ):
+    """Returns key with the smallest value, or None if no elements."""
+    key_with_smallest_value = None
+    for key in container:
+        if key_with_smallest_value is None or get_value( container[key_with_smallest_value] ) > get_value( container[key] ):
+            key_with_smallest_value = key
+    return key_with_smallest_value
+
+def find_cheapest_path_dijkstra( graph, start_id, end_id ):
+    visited = dict( )
+    tentative = { start_id : { "cost" : 0, "from" : None } }
+
+    while len( tentative ) > 0:
+        current_tentative = find_smallest_by_value( tentative, lambda x : x["cost"] )
+
+        if current_tentative == end_id:
+            backtrack = [ end_id, tentative[ current_tentative ][ "from" ] ]
+            while backtrack[ -1 ] != start_id:
+                backtrack.append( visited[ backtrack[ -1 ] ][ "from" ] )
+
+            return { "cost" : tentative[ current_tentative ][ "cost" ], "path" : list( reversed( backtrack ) ) }
+
+        for connected in graph[ current_tentative ]:
+            if connected in visited:
+                continue
+
+            dist_throught_current_tentative = tentative[ current_tentative ][ "cost" ] + graph[ current_tentative ][ connected ]
+            if connected not in tentative or tentative[ connected ][ "cost" ] > dist_throught_current_tentative:
+                tentative[connected] = { "cost" : dist_throught_current_tentative, "from" : current_tentative }
+
+        visited[ current_tentative ] = tentative[ current_tentative ]
+        del tentative[ current_tentative ]
+
+    return None
+
 def find_cheapest_path_breadth( graph, start_id, end_id ):
     cheapest_path = None
 
@@ -28,7 +63,7 @@ def find_cheapest_path_breadth( graph, start_id, end_id ):
 
     return cheapest_path
 
-def find_cheapest_path( graph, start_id, end_id ):
+def find_cheapest_path_depth( graph, start_id, end_id ):
     cheapest_path = None
     current_path = { "cost": 0, "path": [ start_id ] }
 
@@ -66,16 +101,22 @@ class TestFindCheapestPath( unittest.TestCase ):
         graph = json.load( f )["graph"]
 
     def test_find_cheapest_path(self):
-        self.assertEqual( find_cheapest_path( self.graph, "0", "1" ), { "cost": 10, "path": ["0", "1"] } )
-        self.assertEqual( find_cheapest_path( self.graph, "0", "2" ), { "cost": 5, "path": ["0", "2"] } )
-        self.assertEqual( find_cheapest_path( self.graph, "1", "2" ), { "cost": 5, "path": ["1", "2"] } )
-        self.assertEqual( find_cheapest_path( self.graph, "0", "3" ), { "cost": 13, "path": ["0", "2", "3"] } )
+        self.assertEqual( find_cheapest_path_depth( self.graph, "0", "1" ), { "cost": 10, "path": ["0", "1"] } )
+        self.assertEqual( find_cheapest_path_depth( self.graph, "0", "2" ), { "cost": 5, "path": ["0", "2"] } )
+        self.assertEqual( find_cheapest_path_depth( self.graph, "1", "2" ), { "cost": 5, "path": ["1", "2"] } )
+        self.assertEqual( find_cheapest_path_depth( self.graph, "0", "3" ), { "cost": 13, "path": ["0", "2", "3"] } )
 
     def test_find_cheapest_path_breadth(self):
         self.assertEqual( find_cheapest_path_breadth( self.graph, "0", "1" ), { "cost": 10, "path": ["0", "1"] } )
         self.assertEqual( find_cheapest_path_breadth( self.graph, "0", "2" ), { "cost": 5, "path": ["0", "2"] } )
         self.assertEqual( find_cheapest_path_breadth( self.graph, "1", "2" ), { "cost": 5, "path": ["1", "2"] } )
         self.assertEqual( find_cheapest_path_breadth( self.graph, "0", "3" ), { "cost": 13, "path": ["0", "2", "3"] } )
+
+    def test_find_cheapest_path_dijkstra(self):
+        self.assertEqual(find_cheapest_path_dijkstra(self.graph, "0", "1"), {"cost": 10, "path": ["0", "1"]})
+        self.assertEqual(find_cheapest_path_dijkstra(self.graph, "0", "2"), {"cost": 5, "path": ["0", "2"]})
+        self.assertEqual(find_cheapest_path_dijkstra(self.graph, "1", "2"), {"cost": 5, "path": ["1", "2"]})
+        self.assertEqual(find_cheapest_path_dijkstra(self.graph, "0", "3"), {"cost": 13, "path": ["0", "2", "3"]})
 
 
 def main( ):

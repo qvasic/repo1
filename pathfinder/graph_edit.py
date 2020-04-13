@@ -9,6 +9,12 @@ import sys
 LEFT_MOUSE_BUTTON = 1
 RIGHT_MOUSE_BUTTON = 3
 
+def pixelate(surface, pixel_size = 2):
+    origin_size = surface.get_size()
+    rescale_size = (origin_size[0] // pixel_size, origin_size[1] // pixel_size)
+    rescale_surface = pygame.transform.smoothscale(surface, rescale_size)
+    pygame.transform.scale(rescale_surface, origin_size, surface)
+
 def distance( p1, p2 ):
     return math.sqrt( ( p1[0]-p2[0] ) ** 2 + ( p1[1]-p2[1] ) ** 2 )
 
@@ -29,8 +35,11 @@ class GraphEditor:
         self.HIT_SIZE = self.VERTICE_SIZE + 2
 
         self.BACKGROUND_COLOR = pygame.Color('white')
-        self.VERTICE_COLOR = pygame.Color('red')
-        self.EDGE_COLOR = pygame.Color('black')
+        self.VERTICE_COLOR = ( 192, 0, 0 )
+        self.SELECTED_VERTICE_COLOR = ( 255, 0, 0 )
+        self.EDGE_COLOR = ( 128, 128, 128 )
+        self.SELECTED_EDGE_COLOR = ( 0, 0, 0 )
+
         self.UPDATE_RATE = 90
 
         self.alt_pressed = False
@@ -67,36 +76,43 @@ class GraphEditor:
     def draw_vertices(self, screen):
         for i in range( len( self.vertices ) ):
             vertice = self.vertices[i]
-            pygame.draw.circle(screen, self.VERTICE_COLOR, vertice,
-                               self.VERTICE_SIZE if i not in self.selected_vertices else self.SELECTED_VERTICE_SIZE)
+            if i in self.selected_vertices:
+                pygame.draw.circle(screen, self.SELECTED_VERTICE_COLOR, vertice, self.SELECTED_VERTICE_SIZE)
+            else:
+                pygame.draw.circle(screen, self.VERTICE_COLOR, vertice, self.VERTICE_SIZE)
 
-    def draw_arrow(self, screen, start, end, bold = False):
+    def draw_arrow(self, screen, start, end, color = ( 0, 0, 0 ), width = 1):
         EDGE_ANGLE = 30
-        EDGE_LENGTH = 10
-        EDGE_WIDTH = 1 if not bold else 3
+        EDGE_LENGTH = 5
 
         if start == end:
             return
 
-        pygame.draw.line(screen, self.EDGE_COLOR, start, end, EDGE_WIDTH )
+        pygame.draw.line(screen, color, start, end, width )
         angle = geometrics.angle( start[0] - end[0], start[1] - end[1] )
 
         arrow_center_coords = ( (end[0] + start[0]) / 2, (end[1] + start[1]) / 2 )
         for edge_angle in ( EDGE_ANGLE, -EDGE_ANGLE ):
             arrow_edge = geometrics.coords( angle + edge_angle, EDGE_LENGTH )
-            pygame.draw.line(screen, self.EDGE_COLOR, arrow_center_coords,
+            pygame.draw.line(screen, color, arrow_center_coords,
                              ( arrow_edge[0] + arrow_center_coords[0],
-                               arrow_edge[1] + arrow_center_coords[1] ), EDGE_WIDTH )
+                               arrow_edge[1] + arrow_center_coords[1] ), width )
 
     def draw_edges(self, screen):
-        for i in range( len( self.edges ) ):
-            edge = self.edges[i]
-            self.draw_arrow( screen, self.vertices[ edge[0] ], self.vertices[ edge[1] ],
-                             edge in self.path_edges )
+        for edge in self.edges:
+            self.draw_arrow(screen, self.vertices[edge[0]], self.vertices[edge[1]], self.EDGE_COLOR, 1)
+
+        for path_edge in self.path_edges:
+            self.draw_arrow(screen, self.vertices[path_edge[0]], self.vertices[path_edge[1]], self.SELECTED_EDGE_COLOR, 3)
+        return
 
     def draw_data(self, screen):
         self.draw_edges( screen )
         self.draw_vertices( screen )
+        if self.dragging_new_edge_from_vertice_i is not None and self.new_edge_end_pos:
+            self.draw_arrow(screen, self.vertices[self.dragging_new_edge_from_vertice_i],
+                            self.new_edge_end_pos)
+        # pixelate(screen)
 
     def find_vertice_by_pos(self, pos):
         for i, vertice in zip( range( len( self.vertices ) ), self.vertices ):
@@ -196,9 +212,9 @@ class GraphEditor:
                     print(graph)
 
                     time_start = time.time()
-                    path = pathfinder.find_cheapest_path(graph,
-                                                                 self.selected_vertices[0],
-                                                                 self.selected_vertices[1])
+                    path = pathfinder.find_cheapest_path_dijkstra(graph,
+                                                                  self.selected_vertices[0],
+                                                                  self.selected_vertices[1])
                     time_end = time.time()
 
                     print(path)
@@ -230,9 +246,11 @@ click+drag: move existing vertice
 shift+click+draw: added new edge between vertices
 right-click: select a vertice as start or end
 """ )
+        self.dragging_new_edge_from_vertice_i = None
+        self.new_edge_end_pos = None
 
         pygame.init()
-        pygame.display.set_caption("graph")
+        pygame.display.set_caption("graph edit")
         screen = pygame.display.set_mode((1200, 800))
         screen.fill(self.BACKGROUND_COLOR)
         self.draw_data( screen )
@@ -241,9 +259,6 @@ right-click: select a vertice as start or end
         done = False
 
         self.dragging_vertice_i = None
-
-        self.dragging_new_edge_from_vertice_i = None
-        self.new_edge_end_pos = None
 
         self.redraw = False
 
@@ -275,9 +290,6 @@ right-click: select a vertice as start or end
 
             screen.fill(self.BACKGROUND_COLOR)
             self.draw_data( screen )
-            if self.dragging_new_edge_from_vertice_i is not None and self.new_edge_end_pos:
-                self.draw_arrow( screen, self.vertices[ self.dragging_new_edge_from_vertice_i ],
-                                 self.new_edge_end_pos )
             pygame.display.flip()
 
         self.save_graph()
