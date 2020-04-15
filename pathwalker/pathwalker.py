@@ -1,7 +1,17 @@
+"""
+TODO:
+- figure out inheritance and eq operators in geometry module
+- add bounding box check to intersect_line_segments
+- put geometry and pathfinder in separate module in separate project to be used by other projects
+- implement is_line_walkable for walkers with size
+"""
+
+
 import pygame
 import math
 import time
 import geometry
+import pathfinder
 
 LEFT_MOUSE_BUTTON = 1
 RIGHT_MOUSE_BUTTON = 3
@@ -28,8 +38,6 @@ def check_hit( pos, hit, hit_size ):
 
 class PathWalker:
     def __init__(self, save_file = None):
-        self.SAVE_FILE = "graph_edit.json" if not save_file else save_file
-
         self.VERTICE_SIZE = 4
         self.HIT_SIZE = self.VERTICE_SIZE + 2
 
@@ -37,8 +45,11 @@ class PathWalker:
         self.WALL_COLOR = ( 0, 0, 0 )
         self.WALL_THICKNESS = 3
         self.NEW_WALL_COLOR = ( 192, 192, 192 )
-        self.VERTICE_COLOR = ( 0, 0, 255 )
-        self.EDGE_COLOR = ( 192, 192, 255 )
+
+        #self.VERTICE_COLOR = ( 0, 0, 255 )
+        #self.EDGE_COLOR = ( 192, 192, 255 )
+        self.VERTICE_COLOR = ( 220, 220, 255 )
+        self.EDGE_COLOR = ( 240, 240, 255 )
 
         self.WALKER_COLOR = ( 64, 192, 64 )
         self.WALKER_SIZE = 5
@@ -83,8 +94,9 @@ class PathWalker:
         surface.fill(self.BACKGROUND_COLOR)
 
         for edge in self.edges:
-            pygame.draw.line( surface, self.EDGE_COLOR, ( int( edge.start.x ), int( edge.start.y ) ),
-                              (int(edge.end.x), int(edge.end.y)) )
+            start = int( self.vertices[ edge[0] ].x ), int( self.vertices[ edge[0] ].y )
+            end = int( self.vertices[ edge[1] ].x ), int( self.vertices[ edge[1] ].y )
+            pygame.draw.line( surface, self.EDGE_COLOR, start, end )
 
         for vertice in self.vertices:
             pygame.draw.circle( surface, self.VERTICE_COLOR, ( int( vertice.x ), int( vertice.y ) ), self.VERTICE_SIZE )
@@ -129,25 +141,22 @@ class PathWalker:
 
                 self.vertices += intersections
 
+    def is_line_walkable(self, line_segment):
+        for wall in self.walls:
+            wall_line_segment = geometry.LineSegment(geometry.Point(wall[0][0], wall[0][1]),
+                                                     geometry.Point(wall[1][0], wall[1][1]))
+            if geometry.intersect_line_segments(line_segment, wall_line_segment) is not None:
+                return False
+
+        return True
+
     def generate_edges(self):
         self.edges = []
         for i in range( len( self.vertices ) ):
-            for j in range( len( self.vertices ) ):
-                if i == j:
-                    continue
-
+            for j in range( i+1, len( self.vertices ) ):
                 new_edge = geometry.LineSegment( self.vertices[ i ], self.vertices[ j ] )
-                can_walk = True
-
-                for wall in self.walls:
-                    wall_line_segment = geometry.LineSegment( geometry.Point( wall[0][0], wall[0][1] ),
-                                                              geometry.Point(wall[1][0], wall[1][1]) )
-                    if geometry.intersect_line_segments( new_edge, wall_line_segment ) is not None:
-                        can_walk = False
-                        break
-
-                if can_walk:
-                    self.edges.append(new_edge)
+                if self.is_line_walkable( new_edge ):
+                    self.edges.append( (i, j) )
 
     def handle_alt_shift_ctrl(self, event):
         if event.type == pygame.KEYDOWN:
@@ -196,12 +205,39 @@ class PathWalker:
             elif self.shift_pressed:
                 pass
             else:
-                if self.walker_path is None:
-                    self.walker_path = [ self.walker_position, geometry.Point( *event.pos ) ]
+                new_path = self.find_walk_path( geometry.Point( *event.pos ) )
+                if new_path is not None:
+                    self.walker_path = new_path
                     self.walker_path_position = 0
                     self.walker_last_move_time = time.time( )
                 else:
-                    self.walker_path.append( geometry.Point( *event.pos ) )
+                    self.stop_walk()
+
+    def find_walk_path(self, dest):
+        if self.is_line_walkable( geometry.LineSegment( self.walker_position, dest ) ):
+            return [ self.walker_position, dest ]
+
+        vertices = self.vertices + [ self.walker_position, dest ]
+        vertice_count = len( vertices )
+        edges = self.edges.copy( )
+        for i in range( vertice_count - 2 ):
+            if self.is_line_walkable( geometry.LineSegment( vertices[ i ], self.walker_position ) ):
+                edges.append( ( i, vertice_count - 2 ) )
+            if self.is_line_walkable( geometry.LineSegment( vertices[ i ], dest ) ):
+                edges.append( ( i, vertice_count - 1 ) )
+
+        graph = { i : dict( ) for i in range( len( vertices ) ) }
+        for edge in edges:
+            distance = geometry.distance( vertices[ edge[0] ], vertices[ edge[1] ] )
+            graph[ edge[0] ][ edge[1] ] = distance
+            graph[ edge[1] ][ edge[0] ] = distance
+
+        path = pathfinder.find_cheapest_path_dijkstra( graph, vertice_count-2, vertice_count-1 )
+        if path is None:
+            return None
+
+        path_coordinates = [ vertices[ vertice_i ] for vertice_i in path["path"] ]
+        return path_coordinates
 
     def stop_walk(self):
         self.walker_path = None
@@ -234,7 +270,6 @@ class PathWalker:
         self.walker_last_move_time = current_time
         self.redraw = True
 
-
     def handle_mouse_up(self, event):
         if event.button == LEFT_MOUSE_BUTTON:
             if self.new_wall is not None:
@@ -245,7 +280,8 @@ class PathWalker:
                 self.redraw = True
 
                 print( "new wall", self.walls[-1] )
-                print( "edges", self.edges )
+                print(len(self.vertices), "vertices", self.vertices)
+                print( len( self.edges ), "edges", self.edges )
 
     def run(self):
         print( """brief help:
@@ -256,7 +292,7 @@ ctrl-right-click: teleport
 
         pygame.init()
         pygame.display.set_caption("path walker")
-        screen = pygame.display.set_mode((1200, 800))
+        screen = pygame.display.set_mode((800, 500))
 
         self.redraw_screen(screen)
 

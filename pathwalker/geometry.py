@@ -247,6 +247,8 @@ def intersect_line_segments( segment1, segment2 ):
     If they do intersect - returns Point object with value of point of intersection.
     If segment is contained by the line - it returns the line segment object."""
 
+    # check bounding box intersection
+
     intersection = intersect_line_and_line_segment( segment1, segment2 )
 
     if intersection is None:

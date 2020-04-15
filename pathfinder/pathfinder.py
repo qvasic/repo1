@@ -17,7 +17,7 @@ def find_cheapest_path_dijkstra( graph, start_id, end_id ):
         current_tentative = find_smallest_by_value( tentative, lambda x : x["cost"] )
 
         if current_tentative == end_id:
-            backtrack = [ end_id, tentative[ current_tentative ][ "from" ] ]
+            backtrack = [ end_id, tentative[ end_id ][ "from" ] ]
             while backtrack[ -1 ] != start_id:
                 backtrack.append( visited[ backtrack[ -1 ] ][ "from" ] )
 

@@ -112,7 +112,7 @@ class GraphEditor:
         if self.dragging_new_edge_from_vertice_i is not None and self.new_edge_end_pos:
             self.draw_arrow(screen, self.vertices[self.dragging_new_edge_from_vertice_i],
                             self.new_edge_end_pos)
-        # pixelate(screen)
+        # pixelate(screen, 5)
 
     def find_vertice_by_pos(self, pos):
         for i, vertice in zip( range( len( self.vertices ) ), self.vertices ):
