@@ -96,9 +96,21 @@ def find_cheapest_path_depth( graph, start_id, end_id ):
     return cheapest_path
 
 class TestFindCheapestPath( unittest.TestCase ):
-
-    with open( "graph.json" ) as f:
-        graph = json.load( f )["graph"]
+    graph_json = """
+    {
+        "description": [
+            "graph element contains nodes. each node has it's id, and a dictionary of outgoing connections.",
+            "node id it is connected to is key, value is the cost of that transition."
+        ],
+        "graph": {
+            "0": {"1": 10, "2": 5},
+            "1": {"2": 5, "3": 7},
+            "2": {"3": 8},
+            "3": {}
+        }
+    }
+    """
+    graph = json.loads( graph_json )["graph"]
 
     def test_find_cheapest_path(self):
         self.assertEqual( find_cheapest_path_depth( self.graph, "0", "1" ), { "cost": 10, "path": ["0", "1"] } )
@@ -118,23 +130,9 @@ class TestFindCheapestPath( unittest.TestCase ):
         self.assertEqual(find_cheapest_path_dijkstra(self.graph, "1", "2"), {"cost": 5, "path": ["1", "2"]})
         self.assertEqual(find_cheapest_path_dijkstra(self.graph, "0", "3"), {"cost": 13, "path": ["0", "2", "3"]})
 
-
 def main( ):
     print( "hell0 main" )
-
     unittest.main( )
-
-    return
-
-
-    with open( "graph.json" ) as f:
-        graph = json.load( f )["graph"]
-    print( graph )
-
-    print( "0-1:", find_cheapest_path( graph, 0, 1 ) )
-    #print( "0-2:", find_cheapest_path( graph, 0, 2 ) )
-    #print( "1-2:", find_cheapest_path( graph, 1, 2 ) )
-    #print( "0-3:", find_cheapest_path( graph, 0, 3 ) )
 
 if __name__ == "__main__":
     main( )

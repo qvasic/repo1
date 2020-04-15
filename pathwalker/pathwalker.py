@@ -1,9 +1,12 @@
 """
+DONE:
+- put geometry and pathfinder in separate module in separate project to be used by other projects
+
 TODO:
 - figure out inheritance and eq operators in geometry module
 - add bounding box check to intersect_line_segments
-- put geometry and pathfinder in separate module in separate project to be used by other projects
 - implement is_line_walkable for walkers with size
+- generate vertices only outside of angles
 """
 
 
