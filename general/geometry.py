@@ -45,6 +45,9 @@ class Point:
         self.x = x
         self.y = y
 
+    def int_tuple(self):
+        return int( self.x ), int( self.y )
+
     def __str__(self):
         return "Point( {}, {} )".format( self.x, self.y )
 
@@ -97,6 +100,21 @@ class Line:
         projection = intersect_lines( self, self.perpendicular( point ) )
         return Point( 2 * projection.x - point.x, 2 * projection.y - point.y )
 
+    def are_on_the_same_side(self, point1, point2):
+        """Returns True if both point1 and point2 are on the same side in regard on this line."""
+        if point1 in self or point2 in self:
+            raise ValueError( "Point must not be on the line." )
+
+        if self.vertical:
+            return ( point1.x < self.x and point2.x < self.x
+                     or point1.x > self.x and point2.x > self.x )
+
+        projection1 = self.point_at_x( point1.x )
+        projection2 = self.point_at_x( point2.x )
+
+        return ( point1.y < projection1.y and point2.y < projection2.y
+                 or point1.y > projection1.y and point2.y > projection2.y )
+
     def __contains__(self, point):
         assert( type( point ) is Point )
 
@@ -115,8 +133,8 @@ class Line:
         return self.__str__( );
 
     def __eq__(self, other):
-        #if type( other ) is not Line:
-        #    return False
+        if type( other ) is not Line and not issubclass( type( other ), Line ):
+            return False
 
         if self.vertical != other.vertical:
             return False
@@ -159,8 +177,8 @@ class LineSegment( Line ):
         return check_value_inside_bounds(point.x, self.start.x, self.end.x)
 
     def __eq__(self, other):
-        #if type( other ) is not LineSegment:
-        #    return False
+        if type( other ) is not LineSegment:
+            return False
 
         return Line.__eq__( self, other ) and self.start == other.start and self.end == other.end
 
@@ -608,9 +626,9 @@ class TestPolylineProximityRoutines( unittest.TestCase ):
                                                            LineSegment( Point( -2, -1 ), Point( -1, 0 ) ) ),
                           None )
 
-        self.assertEqual( intersect_line_and_line_segment( Line( Point( 0, 0 ), Point( 10, 0 ) ),
-                                                           LineSegment( Point( -2, 0 ), Point( 0, 0 ) ) ),
-                          LineSegment( Point( -2, 0 ), Point( 0, 0 ) ) )
+        self.assertEqual( LineSegment( Point( -2, 0 ), Point( 0, 0 ) ),
+                          intersect_line_and_line_segment( Line( Point( 0, 0 ), Point( 10, 0 ) ),
+                                                           LineSegment( Point( -2, 0 ), Point( 0, 0 ) ) ) )
 
     def test_intersect_line_segments(self):
         self.assertEqual( intersect_line_and_line_segment( LineSegment( Point( 1, 1 ), Point( 10, 10 ) ),
@@ -633,6 +651,18 @@ class TestPolylineProximityRoutines( unittest.TestCase ):
                                                         measure_out(Point(0, 0), Point(10, 1), 5) ) )
         self.assertEqual( measure_out( Point( 0, 0 ), Point( 0, 1 ), 5 ),
                           Point( 0, 5 ) )
+
+    def test_are_on_the_same_side(self):
+        with self.assertRaises( ValueError ):
+            Line(Point(0, 0), Point(0, 1)).are_on_the_same_side( Point( 1, 1 ), Point( 0, 10 ) )
+
+        self.assertTrue( Line(Point(0, 0), Point(0, 1)).are_on_the_same_side( Point( 1, 1 ), Point( 1, 10 ) ) )
+        self.assertTrue(Line(Point(0, 0), Point(0, 1)).are_on_the_same_side(Point(-10, 1), Point(-0.1, 10)))
+        self.assertFalse(Line(Point(0, 0), Point(0, 1)).are_on_the_same_side(Point(10, 1), Point(-0.1, 10)))
+
+        self.assertTrue(Line(Point(0, 0), Point(1, 1)).are_on_the_same_side(Point(10, 11), Point(-0.1, 0)))
+        self.assertFalse(Line(Point(0, 0), Point(1, -1)).are_on_the_same_side(Point(10, 0), Point(-0.1, 0)))
+
 
 
 if __name__ == "__main__":

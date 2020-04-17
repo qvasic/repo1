@@ -1,12 +1,21 @@
 """
 DONE:
 - put geometry and pathfinder in separate module in separate project to be used by other projects
+- figure out inheritance and eq operators in geometry module
+- generate vertices only outside of angles
+- change creating walls into sequence of walls
+
 
 TODO:
-- figure out inheritance and eq operators in geometry module
 - add bounding box check to intersect_line_segments
+- intersection of line segments which are on the same line
+
 - implement is_line_walkable for walkers with size
-- generate vertices only outside of angles
+
+- creation of "closed" walls
+- corner cases for vertices generation - "not corner" corner, 0-degrees angle corner
+
+- debug absent edges - new wall [Point( 58, 48 ), Point( 58, 418 ), Point( 460, 439 ), Point( 464, 387 ), Point( 102, 375 ), Point( 103, 318 ), Point( 726, 357 ), Point( 715, 461 ), Point( 526, 449 ), Point( 517, 479 ), Point( 30, 460 ), Point( 27, 18 ), Point( 106, 20 ), Point( 98, 264 ), Point( 722, 306 ), Point( 722, 306 )]
 """
 
 
@@ -37,6 +46,71 @@ def check_hit( pos, hit, hit_size ):
             return True
 
     return False
+
+
+def pairwise( iterable ):
+    iterator = iter( iterable )
+    try:
+        prev = next( iterator )
+    except StopIteration:
+        return
+
+    for curr in iterator:
+        yield prev, curr
+        prev = curr
+
+
+def vertices_for_line_segment_end( end, other_end, offset ):
+    offset_center = geometry.measure_out( end, other_end, -offset )
+    vertices = geometry.intersect_line_and_circle( geometry.Circle( offset_center, offset ),
+                                                   geometry.Line( end, other_end ).perpendicular( offset_center ) )
+    assert( len( vertices ) == 2 )
+    return vertices
+
+
+def vertices_for_sharp_corner( point1, center_point, point2, offset ):
+    def vertice_for_one_corner_wall( corner_point, end_point, other_end_point ):
+        vertices = vertices_for_line_segment_end( corner_point, end_point, offset )
+        wall_line = geometry.Line( corner_point, end_point )
+        if not wall_line.are_on_the_same_side( vertices[0], other_end_point ):
+            return vertices[0]
+        else:
+            return vertices[1]
+
+    return [ vertice_for_one_corner_wall( center_point, point1, point2 ),
+             vertice_for_one_corner_wall( center_point, point2, point1 ) ]
+
+
+def vertices_for_non_sharp_corner( point1, center_point, point2, offset ):
+    def parallel_outstanding_line( corner, end, other_end ):
+        corner_wall_line = geometry.Line( corner, end )
+        perpendicular = corner_wall_line.perpendicular( corner )
+        intersections = geometry.intersect_line_and_circle( geometry.Circle( corner, offset ), perpendicular )
+        assert( len( intersections ) == 2 )
+        if not corner_wall_line.are_on_the_same_side( intersections[0], other_end ):
+            return perpendicular.perpendicular( intersections[0] )
+        else:
+            return perpendicular.perpendicular(intersections[1])
+
+    outstanding_line1 = parallel_outstanding_line( center_point, point1, point2 )
+    outstanding_line2 = parallel_outstanding_line( center_point, point2, point1 )
+    return geometry.intersect_lines( outstanding_line1, outstanding_line2 )
+
+
+def is_corner_sharp( end_point1, center_point, end_point2 ):
+    """Returns True if angle between lines end_point1-cetner_point
+    and center_point-end_point2 is less then 90 degrees."""
+
+    cathetus1 = geometry.Line( center_point, end_point1 )
+    cathetus2 = cathetus1.perpendicular( end_point1 )
+    hypotenuse = geometry.Line( center_point, end_point2 )
+
+    cathetus2_intersection = geometry.intersect_lines( cathetus2, hypotenuse )
+
+    if cathetus2_intersection is None:
+        return False
+
+    return cathetus1.are_on_the_same_side( end_point2, cathetus2_intersection )
 
 
 class PathWalker:
@@ -71,44 +145,31 @@ class PathWalker:
         self.walker_position = geometry.Point( 200, 200 )
         self.walker_path = None
         self.walker_path_position = None
-        self.walker_speed_p_s = 120
+        self.walker_speed_p_s = 160
         self.walker_last_move_time = None
 
         self.redraw = True
-
-    def draw_arrow(self, screen, start, end, color = ( 0, 0, 0 ), width = 1):
-        ARROW_ANGLE = 30
-        ARROW_LENGTH = 5
-
-        if start == end:
-            return
-
-        pygame.draw.line(screen, color, start, end, width )
-        angle = geometry.angle( start[0] - end[0], start[1] - end[1] )
-
-        arrow_center_coords = ( (end[0] + start[0]) / 2, (end[1] + start[1]) / 2 )
-        for edge_angle in ( ARROW_ANGLE, -ARROW_ANGLE ):
-            arrow_edge = geometry.coords( angle + edge_angle, ARROW_LENGTH )
-            pygame.draw.line(screen, color, arrow_center_coords,
-                             ( arrow_edge[0] + arrow_center_coords[0],
-                               arrow_edge[1] + arrow_center_coords[1] ), width )
 
     def redraw_screen(self, surface):
         surface.fill(self.BACKGROUND_COLOR)
 
         for edge in self.edges:
-            start = int( self.vertices[ edge[0] ].x ), int( self.vertices[ edge[0] ].y )
-            end = int( self.vertices[ edge[1] ].x ), int( self.vertices[ edge[1] ].y )
+            start = self.vertices[ edge[0] ].int_tuple( )
+            end = self.vertices[ edge[1] ].int_tuple( )
             pygame.draw.line( surface, self.EDGE_COLOR, start, end )
 
         for vertice in self.vertices:
-            pygame.draw.circle( surface, self.VERTICE_COLOR, ( int( vertice.x ), int( vertice.y ) ), self.VERTICE_SIZE )
+            pygame.draw.circle( surface, self.VERTICE_COLOR, vertice.int_tuple( ), self.VERTICE_SIZE )
 
         for wall in self.walls:
-            pygame.draw.line( surface, self.WALL_COLOR, wall[0], wall[1], self.WALL_THICKNESS )
+            for wall_segment in pairwise( wall ):
+                pygame.draw.line( surface, self.WALL_COLOR, wall_segment[0].int_tuple( ), wall_segment[1].int_tuple( ),
+                                  self.WALL_THICKNESS )
 
         if self.new_wall is not None:
-            pygame.draw.line(surface, self.NEW_WALL_COLOR, self.new_wall[0], self.new_wall[1])
+            for new_wall_segment in pairwise( self.new_wall ):
+                pygame.draw.line(surface, self.NEW_WALL_COLOR, new_wall_segment[0].int_tuple( ),
+                                 new_wall_segment[1].int_tuple( ))
 
         pygame.draw.circle(surface, self.WALKER_COLOR, ( int( self.walker_position.x ), int( self.walker_position.y ) ),
                            self.WALKER_SIZE)
@@ -120,36 +181,22 @@ class PathWalker:
 
         self.vertices = []
         for wall in self.walls:
-            offset_centers = []
-            wall_line = geometry.Line( geometry.Point( *wall[0] ), geometry.Point( *wall[1] ) )
-            if wall_line.vertical:
-                if wall[0][1] > wall[1][1]:
-                    wall[0], wall[1] = wall[1], wall[0]
-                offset_centers = [ geometry.Point( wall_line.x, wall[0][1] - OFFSET_LEN ),
-                                   geometry.Point( wall_line.x, wall[1][1] + OFFSET_LEN ) ]
-            else:
-                if wall[0][0] > wall[1][0]:
-                    wall[0], wall[1] = wall[1], wall[0]
-                x_offset = OFFSET_LEN / math.sqrt( wall_line.a ** 2 + 1 )
-
-                left_x = wall[0][0] - x_offset
-                right_x = wall[1][0] + x_offset
-                offset_centers = [ geometry.Point( left_x, left_x * wall_line.a + wall_line.b ),
-                                   geometry.Point( right_x, right_x * wall_line.a + wall_line.b ) ]
-
-            for offset_center in offset_centers:
-                perpendicular = wall_line.perpendicular( offset_center )
-                intersections = geometry.intersect_line_and_circle( geometry.Circle( offset_center, OFFSET_LEN ),
-                                                                    perpendicular )
-
-                self.vertices += intersections
+            self.vertices += vertices_for_line_segment_end( wall[0], wall[1], OFFSET_LEN )
+            self.vertices += vertices_for_line_segment_end( wall[-1], wall[-2], OFFSET_LEN )
+            for wall_corner in pairwise( pairwise( wall ) ):
+                if is_corner_sharp( wall_corner[0][0], wall_corner[0][1], wall_corner[1][1] ):
+                    self.vertices += vertices_for_sharp_corner( wall_corner[0][0], wall_corner[0][1], wall_corner[1][1],
+                                                                OFFSET_LEN )
+                else:
+                    self.vertices.append( vertices_for_non_sharp_corner( wall_corner[0][0], wall_corner[0][1],
+                                                                         wall_corner[1][1], OFFSET_LEN ) )
 
     def is_line_walkable(self, line_segment):
         for wall in self.walls:
-            wall_line_segment = geometry.LineSegment(geometry.Point(wall[0][0], wall[0][1]),
-                                                     geometry.Point(wall[1][0], wall[1][1]))
-            if geometry.intersect_line_segments(line_segment, wall_line_segment) is not None:
-                return False
+            for wall_segment in pairwise( wall ):
+                wall_line_segment = geometry.LineSegment( wall_segment[0], wall_segment[1] )
+                if geometry.intersect_line_segments(line_segment, wall_line_segment) is not None:
+                    return False
 
         return True
 
@@ -173,6 +220,14 @@ class PathWalker:
 
         elif event.type == pygame.KEYUP:
             if event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT:
+                if self.new_wall is not None:
+                    if len( self.new_wall ) > 2:
+                        print( "new wall", self.new_wall )
+                        self.walls.append( self.new_wall[:-1] )
+                        self.generate_vertices()
+                        self.generate_edges()
+                    self.new_wall = None
+                    self.redraw = True
                 self.shift_pressed = False
             elif event.key == pygame.K_RALT or event.key == pygame.K_LALT:
                 self.alt_pressed = False
@@ -184,7 +239,7 @@ class PathWalker:
 
     def handle_mouse_move(self, event):
         if self.new_wall is not None:
-            self.new_wall[1] = event.pos
+            self.new_wall[-1] = geometry.Point( *event.pos )
             self.redraw = True
 
     def handle_mouse_down(self, event):
@@ -194,7 +249,12 @@ class PathWalker:
             elif self.ctrl_pressed:
                 pass
             elif self.shift_pressed:
-                self.new_wall = [ event.pos, event.pos ]
+                if self.new_wall is None:
+                    self.new_wall = [ geometry.Point( *event.pos ), geometry.Point( *event.pos ) ]
+                else:
+                    if self.new_wall[-2] != self.new_wall[-1]:
+                        self.new_wall[-1] = geometry.Point( *event.pos )
+                        self.new_wall.append( geometry.Point( *event.pos ) )
                 self.redraw = True
             else:
                 pass
@@ -274,21 +334,11 @@ class PathWalker:
         self.redraw = True
 
     def handle_mouse_up(self, event):
-        if event.button == LEFT_MOUSE_BUTTON:
-            if self.new_wall is not None:
-                self.walls.append( self.new_wall )
-                self.new_wall = None
-                self.generate_vertices()
-                self.generate_edges()
-                self.redraw = True
-
-                print( "new wall", self.walls[-1] )
-                print(len(self.vertices), "vertices", self.vertices)
-                print( len( self.edges ), "edges", self.edges )
+        None
 
     def run(self):
         print( """brief help:
-shift-click+drag: add wall
+shift-click: add wall
 right-click: walk
 ctrl-right-click: teleport
 """ )
@@ -334,6 +384,7 @@ ctrl-right-click: teleport
             pygame.display.flip()
 
         pygame.quit()
+
 
 if __name__ == "__main__":
     walker = PathWalker( )
