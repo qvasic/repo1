@@ -191,11 +191,11 @@ class PathWalker:
                     self.vertices.append( vertices_for_non_sharp_corner( wall_corner[0][0], wall_corner[0][1],
                                                                          wall_corner[1][1], OFFSET_LEN ) )
 
-    def is_line_walkable(self, line_segment):
+    def is_line_walkable(self, walk_line_segment):
         for wall in self.walls:
             for wall_segment in pairwise( wall ):
                 wall_line_segment = geometry.LineSegment( wall_segment[0], wall_segment[1] )
-                if geometry.intersect_line_segments(line_segment, wall_line_segment) is not None:
+                if geometry.intersect_line_segments(walk_line_segment, wall_line_segment) is not None:
                     return False
 
         return True

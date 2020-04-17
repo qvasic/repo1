@@ -250,9 +250,9 @@ def intersect_line_and_line_segment( line, line_segment ):
         return line_segment
 
     if type( lines_intersection ) is Point:
-        is_intersection_on_line_segment = ( line_segment.vertical
-                                            and check_value_inside_bounds( lines_intersection.y, line_segment.start.y, line_segment.end.y )
-                                            or check_value_inside_bounds( lines_intersection.x, line_segment.start.x, line_segment.end.x ) )
+        is_intersection_on_line_segment = ( check_value_inside_bounds(lines_intersection.y, line_segment.start.y, line_segment.end.y)
+                                            if line_segment.vertical
+                                            else check_value_inside_bounds( lines_intersection.x, line_segment.start.x, line_segment.end.x) )
         if is_intersection_on_line_segment:
             return lines_intersection
 
@@ -273,9 +273,9 @@ def intersect_line_segments( segment1, segment2 ):
         return None
 
     if type( intersection ) is Point: # and intersection in segment1:
-        is_intersection_on_segment1 = ( segment1.vertical
-                                        and check_value_inside_bounds( intersection.y, segment1.start.y, segment1.end.y )
-                                        or check_value_inside_bounds( intersection.x, segment1.start.x, segment1.end.x ) )
+        is_intersection_on_segment1 = ( check_value_inside_bounds( intersection.y, segment1.start.y, segment1.end.y )
+                                        if segment1.vertical
+                                        else check_value_inside_bounds( intersection.x, segment1.start.x, segment1.end.x ) )
         if is_intersection_on_segment1:
             return intersection
 
@@ -630,15 +630,23 @@ class TestPolylineProximityRoutines( unittest.TestCase ):
                           intersect_line_and_line_segment( Line( Point( 0, 0 ), Point( 10, 0 ) ),
                                                            LineSegment( Point( -2, 0 ), Point( 0, 0 ) ) ) )
 
-    def test_intersect_line_segments(self):
-        self.assertEqual( intersect_line_and_line_segment( LineSegment( Point( 1, 1 ), Point( 10, 10 ) ),
-                                                           LineSegment( Point( 0, 1 ), Point( -1, 0 ) ) ),
+        self.assertEqual( intersect_line_and_line_segment( Line(Point(-1, 0), Point(1, 0) ),
+                                                           LineSegment( Point( 0, -1 ), Point( 0, -10 ) ) ),
                           None )
-        self.assertEqual( intersect_line_and_line_segment( LineSegment( Point( 0, 0 ), Point( -1, 1 ) ),
-                                                           LineSegment( Point( 0, 1 ), Point( -1, 0 ) ) ),
+
+
+    def test_intersect_line_segments(self):
+        self.assertEqual( intersect_line_segments( LineSegment( Point( 1, 1 ), Point( 10, 10 ) ),
+                                                   LineSegment( Point( 0, 1 ), Point( -1, 0 ) ) ),
+                          None )
+        self.assertEqual( intersect_line_segments( LineSegment( Point( 0, 0 ), Point( -1, 1 ) ),
+                                                   LineSegment( Point( 0, 1 ), Point( -1, 0 ) ) ),
                           Point( -0.5, 0.5 ) )
-        self.assertEqual( intersect_line_and_line_segment( LineSegment( Point( -2, -1 ), Point( -1, 0 ) ),
-                                                           LineSegment( Point( -2, 2 ), Point( -1, 1 ) ) ),
+        self.assertEqual( intersect_line_segments( LineSegment( Point( -2, -1 ), Point( -1, 0 ) ),
+                                                   LineSegment( Point( -2, 2 ), Point( -1, 1 ) ) ),
+                          None )
+        self.assertEqual( intersect_line_segments( LineSegment( Point( 0, -1 ), Point( 0, -10 ) ),
+                                                   LineSegment(Point(-1, 0), Point(1, 0)) ),
                           None )
 
     def test_measure_out(self):
