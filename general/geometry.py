@@ -327,23 +327,15 @@ def intersect_line_segment_and_circle( circle, segment ):
         return tuple( )
 
     line_circle_intersection = intersect_line_and_circle( circle, segment )
-    segment_circle_intersection = tuple( filter( lambda x : x in segment, line_circle_intersection ) )
-
-    if len( segment_circle_intersection ) < 2:
-        return segment_circle_intersection
 
     if segment.vertical:
-        if ( abs( segment_circle_intersection[ 0 ].y - segment.start.y )
-             < abs( ( segment_circle_intersection[ 1 ].y - segment.start.y ) ) ):
-            return segment_circle_intersection
-        else:
-            return ( segment_circle_intersection[ 1 ], segment_circle_intersection[ 0 ] )
-
-    if ( abs( segment_circle_intersection[ 0 ].x - segment.start.x )
-         < abs( ( segment_circle_intersection[ 1 ].x - segment.start.x ) ) ):
-        return segment_circle_intersection
+        def check_point_belongs_to_segment( point ):
+            return check_value_inside_bounds( point.y, segment.start.y, segment.end.y )
     else:
-        return ( segment_circle_intersection[ 1 ], segment_circle_intersection[ 0 ] )
+        def check_point_belongs_to_segment( point ):
+            return check_value_inside_bounds( point.x, segment.start.x, segment.end.x )
+
+    return tuple( filter( check_point_belongs_to_segment, line_circle_intersection ) )
 
 
 def measure_out( start, end, distance ):
@@ -567,19 +559,20 @@ class TestPolylineProximityRoutines( unittest.TestCase ):
                           ( Point( 0, -10 ), ) )
         self.assertEqual( intersect_line_segment_and_circle( Circle( Point( 0, 0 ), 10 ),
                                                              LineSegment( Point( 0, 10 ), Point( 0, -100 ) ) ),
-                          ( Point( 0, -10 ), Point( 0, 10 ) ) )
+                          ( Point( 0, 10 ), Point( 0, -10 ) ) )
         self.assertEqual( intersect_line_segment_and_circle( Circle( Point( 0, 0 ), 10 ),
                                                              LineSegment( Point( 0, -100 ), Point( 0, 10 ) ) ),
-                          ( Point( 0, -10 ), Point( 0, 10 ) ) )
+                          ( Point( 0, 10 ), Point( 0, -10 ) ) )
 
         self.assertEqual( intersect_line_segment_and_circle( Circle( Point( 1, 1 ), 5 ),
                                                              LineSegment( Point( 0, 10 ), Point( -4, -10 ) ) ),
-                          ( Point( -2.5118182981793273, -2.5590914908966376 ),
-                            Point(-0.872797086436057, 5.636014567819715) ) )
+                          ( Point( -0.872797086436057, 5.636014567819715 ),
+                            Point( -2.5118182981793273, -2.5590914908966376 ) ) )
+
         self.assertEqual( intersect_line_segment_and_circle( Circle( Point( 1, 1 ), 5 ),
                                                              LineSegment( Point( -4, -10 ), Point( 0, 10 ) ) ),
-                          ( Point( -2.5118182981793273, -2.5590914908966376 ),
-                            Point( -0.872797086436057, 5.636014567819715 ) ) )
+                          ( Point( -0.872797086436057, 5.636014567819715 ),
+                            Point( -2.5118182981793273, -2.5590914908966376 ) ) )
 
         self.assertEqual( intersect_line_segment_and_circle( Circle( Point( 1, 1 ), 5 ),
                                                              LineSegment( Point( 0, 10 ), Point( -2, 0 ) ) ),
