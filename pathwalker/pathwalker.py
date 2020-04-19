@@ -18,6 +18,7 @@ TODO:
 import pygame
 import math
 import time
+import json
 import geometry
 import pathfinder
 
@@ -118,7 +119,9 @@ def vertices_for_corner( point1, center_point, point2, offset ):
 
 class PathWalker:
     def __init__(self, save_file = None):
-        self.VERTICE_SIZE = 4
+        self.SAVE_FILE = "walls.json"
+
+        self.VERTICE_SIZE = 3
         self.HIT_SIZE = 6
 
         self.BACKGROUND_COLOR = pygame.Color('white')
@@ -141,6 +144,7 @@ class PathWalker:
 
         self.walls = []
         self.new_wall = None
+        self.dragged_corner = None
         self.vertices = []
         self.edges = []
 
@@ -150,11 +154,24 @@ class PathWalker:
         self.walker_speed_p_s = 160
         self.walker_last_move_time = None
 
+        self.load_walls()
+
         self.redraw = True
+
+    def load_walls(self):
+        with open( self.SAVE_FILE ) as f:
+            self.walls = [ [ geometry.Point( *corner ) for corner in wall ] for wall in json.load( f )["walls"] ]
+        self.generate_vertices()
+        self.generate_edges()
+
+    def save_walls(self):
+        with open( self.SAVE_FILE, "w" ) as f:
+            json.dump( { "walls": [ [ ( corner.x, corner.y ) for corner in wall ] for wall in self.walls ] }, f )
 
     def redraw_screen(self, surface):
         surface.fill(self.BACKGROUND_COLOR)
 
+        """
         for edge in self.edges:
             start = self.vertices[ edge[0] ].int_tuple( )
             end = self.vertices[ edge[1] ].int_tuple( )
@@ -162,6 +179,7 @@ class PathWalker:
 
         for vertice in self.vertices:
             pygame.draw.circle( surface, self.VERTICE_COLOR, vertice.int_tuple( ), self.VERTICE_SIZE )
+            """
 
         for wall in self.walls:
             for wall_segment in pairwise( wall ):
@@ -255,16 +273,44 @@ class PathWalker:
             else:
                 self.new_wall[-1] = geometry.Point( *event.pos )
             self.redraw = True
+        elif self.dragged_corner is not None:
+            wall = self.walls[ self.dragged_corner[0] ]
+            if self.dragged_corner[1] == 0 and wall[0] == wall[-1]:
+                wall[0] = wall[-1] = geometry.Point( *event.pos )
+            else:
+                wall[ self.dragged_corner[1] ] = geometry.Point( *event.pos )
+            self.redraw = True
 
     def handle_mouse_down(self, event):
         if event.button == LEFT_MOUSE_BUTTON:
             if self.alt_pressed:
                 pass
             elif self.ctrl_pressed:
-                pass
+                for i in range( len( self.walls ) ):
+                    for j in range( len( self.walls[i] ) ):
+                        if check_hit(self.walls[i][j].int_tuple(), event.pos, self.HIT_SIZE):
+                            self.walls[i].pop( j )
+                            if len( self.walls[i] ) == 1:
+                                self.walls.pop( i )
+                            elif len( self.walls[i] ) == 3 and self.walls[i][0] == self.walls[i][-1]:
+                                self.walls[i].pop()
+                            self.generate_vertices()
+                            self.generate_edges()
+                            self.redraw = True
+                            return
             elif self.shift_pressed:
                 if self.new_wall is None:
-                    self.new_wall = [ geometry.Point( *event.pos ), geometry.Point( *event.pos ) ]
+                    for i in range( len( self.walls ) ):
+                        if check_hit( self.walls[i][0].int_tuple(), event.pos, self.HIT_SIZE ):
+                            self.new_wall = list( reversed( self.walls.pop( i ) ) )
+                            self.new_wall.append( geometry.Point( *event.pos ) )
+                            break
+                        elif check_hit( self.walls[i][-1].int_tuple(), event.pos, self.HIT_SIZE ):
+                            self.new_wall = self.walls.pop( i )
+                            self.new_wall.append( geometry.Point( *event.pos ) )
+                            break
+                    else:
+                        self.new_wall = [ geometry.Point( *event.pos ), geometry.Point( *event.pos ) ]
                 else:
 
                     if check_hit(self.new_wall[0].int_tuple(), event.pos, self.HIT_SIZE):
@@ -279,7 +325,11 @@ class PathWalker:
                             self.new_wall.append( geometry.Point( *event.pos ) )
                 self.redraw = True
             else:
-                pass
+                for i in range( len( self.walls ) ):
+                    for j in range( len( self.walls[i] ) ):
+                        if check_hit(self.walls[i][j].int_tuple(), event.pos, self.HIT_SIZE):
+                            self.dragged_corner = ( i, j )
+
         elif event.button == RIGHT_MOUSE_BUTTON:
             if self.alt_pressed:
                 pass
@@ -356,7 +406,11 @@ class PathWalker:
         self.redraw = True
 
     def handle_mouse_up(self, event):
-        None
+        if self.dragged_corner is not None:
+            self.generate_vertices()
+            self.generate_edges()
+            self.dragged_corner = None
+            self.redraw = True
 
     def run(self):
         print( """brief help:
@@ -367,7 +421,7 @@ ctrl-right-click: teleport
 
         pygame.init()
         pygame.display.set_caption("path walker")
-        screen = pygame.display.set_mode((800, 500))
+        screen = pygame.display.set_mode((1000, 625))
 
         self.redraw_screen(screen)
 
@@ -405,6 +459,7 @@ ctrl-right-click: teleport
             self.redraw_screen( screen )
             pygame.display.flip()
 
+        self.save_walls()
         pygame.quit()
 
 
