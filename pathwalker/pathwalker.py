@@ -6,12 +6,14 @@ DONE:
 - change creating walls into sequence of walls
 - debug absent edges - new wall [Point( 58, 48 ), Point( 58, 418 ), Point( 460, 439 ), Point( 464, 387 ), Point( 102, 375 ), Point( 103, 318 ), Point( 726, 357 ), Point( 715, 461 ), Point( 526, 449 ), Point( 517, 479 ), Point( 30, 460 ), Point( 27, 18 ), Point( 106, 20 ), Point( 98, 264 ), Point( 722, 306 ), Point( 722, 306 )]
 - creation of "closed" walls
+- implement is_line_walkable for walkers with size
 
 TODO:
 - add bounding box check to intersect_line_segments
 - intersection of line segments which are on the same line
-- implement is_line_walkable for walkers with size
+- if destination if too close to a wall - move destination out
 - corner cases for vertices generation - "not corner" corner, 0-degrees angle corner
+- keep an eye for does_line_segment_interfere_with_rect exceptions
 """
 
 
@@ -117,6 +119,58 @@ def vertices_for_corner( point1, center_point, point2, offset ):
         return vertices_for_non_sharp_corner(point1, center_point, point2, offset)
 
 
+def is_line_segment_inside_intersection( line_segment, intersection_point1, intersection_point2 ):
+    """Determines whether a line is at least partially inside an intersection with other figure.
+    Intersection is defined by two points - intersection of line of line segment (yeah, right) with a figure
+    (be it circle, or triangle, or rectangle)."""
+
+    if line_segment.vertical:
+        return ( geometry.check_value_inside_bounds( line_segment.start.y, intersection_point1.y, intersection_point2.y )
+                 or geometry.check_value_inside_bounds( line_segment.end.y, intersection_point1.y, intersection_point2.y )
+                 or geometry.check_value_inside_bounds( intersection_point1.y, line_segment.start.y, line_segment.end.y )
+                 or geometry.check_value_inside_bounds( intersection_point2.y, line_segment.start.y, line_segment.end.y ) )
+    else:
+        return ( geometry.check_value_inside_bounds( line_segment.start.x, intersection_point1.x, intersection_point2.x )
+                 or geometry.check_value_inside_bounds( line_segment.end.x, intersection_point1.x, intersection_point2.x )
+                 or geometry.check_value_inside_bounds( intersection_point1.x, line_segment.start.x, line_segment.end.x )
+                 or geometry.check_value_inside_bounds( intersection_point2.x, line_segment.start.x, line_segment.end.x ) )
+
+
+def does_line_segment_interfere_with_circle( line_segment, circle ):
+    """Basically finds out whether line segment is at least partially inside a circle.
+    If line segment only "touches" the cirlce - it does not interfere."""
+
+    intersection_points = geometry.intersect_line_and_circle( circle, line_segment )
+
+    if len( intersection_points ) < 2:
+        return False
+
+    is_line_segment_inside_intersection( line_segment, intersection_points[0], intersection_points[1] )
+
+
+def does_line_segment_interfere_with_rect( line_segment, rect_segments ):
+    """Basically determines whether line segment is at least partially inside a rectangle.
+    Rectangle is defined by its edges, its definition is assumed to be correct and is not checked.
+    Actually this should work not only for rectangles, but for any figure with only bulging corners.
+    Yet this is not tested right now."""
+
+    intersection_points = []
+
+    for rect_segment in rect_segments:
+        intersection = geometry.intersect_line_and_line_segment( line_segment, rect_segment )
+        if type( intersection ) is geometry.Point:
+            intersection_points.append( intersection )
+
+    if len( intersection_points ) > 2:
+        raise ValueError( "Rectangle is incorrect, rect_segments={}, line_segment={}, intersection_points={}".format(
+            rect_segments, line_segment, intersection_points ) )
+
+    if len( intersection_points ) < 2:
+        return False
+
+    return is_line_segment_inside_intersection( line_segment, intersection_points[0], intersection_points[1] )
+
+
 class PathWalker:
     def __init__(self, save_file = None):
         self.SAVE_FILE = "walls.json"
@@ -134,7 +188,9 @@ class PathWalker:
         self.EDGE_COLOR = ( 240, 240, 255 )
 
         self.WALKER_COLOR = ( 64, 192, 64 )
-        self.WALKER_SIZE = 5
+        self.WALKER_SIZE = 8
+        self.WALKER_COMFORT_ZONE = 10
+        self.WALKER_VERTICE_BUILDING_COMFORT_ZONE = 11
 
         self.REDRAW_RATE = 90
 
@@ -171,7 +227,6 @@ class PathWalker:
     def redraw_screen(self, surface):
         surface.fill(self.BACKGROUND_COLOR)
 
-        """
         for edge in self.edges:
             start = self.vertices[ edge[0] ].int_tuple( )
             end = self.vertices[ edge[1] ].int_tuple( )
@@ -179,7 +234,6 @@ class PathWalker:
 
         for vertice in self.vertices:
             pygame.draw.circle( surface, self.VERTICE_COLOR, vertice.int_tuple( ), self.VERTICE_SIZE )
-            """
 
         for wall in self.walls:
             for wall_segment in pairwise( wall ):
@@ -200,19 +254,19 @@ class PathWalker:
         pygame.display.flip()
 
     def generate_vertices(self):
-        OFFSET_LEN = 10
+        offset = self.WALKER_VERTICE_BUILDING_COMFORT_ZONE
 
         self.vertices = []
         for wall in self.walls:
             if len( wall ) > 2 and wall[0] == wall[-1]:
-                self.vertices += vertices_for_corner( wall[1], wall[0], wall[-2], OFFSET_LEN )
+                self.vertices += vertices_for_corner( wall[1], wall[0], wall[-2], offset )
             else:
-                self.vertices += vertices_for_line_segment_end( wall[0], wall[1], OFFSET_LEN )
-                self.vertices += vertices_for_line_segment_end( wall[-1], wall[-2], OFFSET_LEN )
+                self.vertices += vertices_for_line_segment_end( wall[0], wall[1], offset )
+                self.vertices += vertices_for_line_segment_end( wall[-1], wall[-2], offset )
 
             for wall_corner in pairwise( pairwise( wall ) ):
                 self.vertices += vertices_for_corner( wall_corner[0][0], wall_corner[0][1], wall_corner[1][1],
-                                                      OFFSET_LEN )
+                                                      offset )
 
     def add_new_wall(self, wall):
         print( "new wall", wall )
@@ -223,10 +277,33 @@ class PathWalker:
         self.generate_edges()
 
     def is_line_walkable(self, walk_line_segment):
+        start_circle = geometry.Circle( walk_line_segment.start, self.WALKER_COMFORT_ZONE )
+        end_circle = geometry.Circle( walk_line_segment.end, self.WALKER_COMFORT_ZONE )
+
+        start_points = geometry.intersect_line_and_circle( start_circle,
+                                                           walk_line_segment.perpendicular( walk_line_segment.start ) )
+        end_points = geometry.intersect_line_and_circle( end_circle,
+                                                         walk_line_segment.perpendicular( walk_line_segment.end ) )
+
+        if not walk_line_segment.are_on_the_same_side( start_points[0], end_points[0] ):
+            end_points[0], end_points[1] = end_points[1], end_points[0]
+
+        trajectory_bounding_rect_segments = [
+            geometry.LineSegment( start_points[0], start_points[1] ),
+            geometry.LineSegment( start_points[1], end_points[1] ),
+            geometry.LineSegment( end_points[1], end_points[0] ),
+            geometry.LineSegment( end_points[0], start_points[0] )
+        ]
+
         for wall in self.walls:
             for wall_segment in pairwise( wall ):
                 wall_line_segment = geometry.LineSegment( wall_segment[0], wall_segment[1] )
-                if geometry.intersect_line_segments(walk_line_segment, wall_line_segment) is not None:
+
+                if ( does_line_segment_interfere_with_circle( wall_line_segment, start_circle ) or
+                     does_line_segment_interfere_with_circle( wall_line_segment, start_circle ) ):
+                    return False
+
+                if does_line_segment_interfere_with_rect( wall_line_segment, trajectory_bounding_rect_segments ):
                     return False
 
         return True
