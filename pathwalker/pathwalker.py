@@ -198,7 +198,7 @@ class PathWalker:
         self.shift_pressed = False
         self.ctrl_pressed = False
 
-        self.show_pathfinding_graph = True
+        self.show_pathfinding_graph = False
 
         self.walls = []
         self.new_wall = None
@@ -511,6 +511,7 @@ click+drag: move corner
 ctrl-click: remove corner
 right-click: walk
 ctrl-right-click: teleport
+F2 - show/hide pathfinding graph
 """ )
 
         pygame.init()
