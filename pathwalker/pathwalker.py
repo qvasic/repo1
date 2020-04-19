@@ -198,6 +198,8 @@ class PathWalker:
         self.shift_pressed = False
         self.ctrl_pressed = False
 
+        self.show_pathfinding_graph = True
+
         self.walls = []
         self.new_wall = None
         self.dragged_corner = None
@@ -217,8 +219,7 @@ class PathWalker:
     def load_walls(self):
         with open( self.SAVE_FILE ) as f:
             self.walls = [ [ geometry.Point( *corner ) for corner in wall ] for wall in json.load( f )["walls"] ]
-        self.generate_vertices()
-        self.generate_edges()
+        self.rebuild_pathfinding_graph()
 
     def save_walls(self):
         with open( self.SAVE_FILE, "w" ) as f:
@@ -227,13 +228,14 @@ class PathWalker:
     def redraw_screen(self, surface):
         surface.fill(self.BACKGROUND_COLOR)
 
-        for edge in self.edges:
-            start = self.vertices[ edge[0] ].int_tuple( )
-            end = self.vertices[ edge[1] ].int_tuple( )
-            pygame.draw.line( surface, self.EDGE_COLOR, start, end )
+        if self.show_pathfinding_graph:
+            for edge in self.edges:
+                start = self.vertices[ edge[0] ].int_tuple( )
+                end = self.vertices[ edge[1] ].int_tuple( )
+                pygame.draw.line( surface, self.EDGE_COLOR, start, end )
 
-        for vertice in self.vertices:
-            pygame.draw.circle( surface, self.VERTICE_COLOR, vertice.int_tuple( ), self.VERTICE_SIZE )
+            for vertice in self.vertices:
+                pygame.draw.circle( surface, self.VERTICE_COLOR, vertice.int_tuple( ), self.VERTICE_SIZE )
 
         for wall in self.walls:
             for wall_segment in pairwise( wall ):
@@ -256,7 +258,6 @@ class PathWalker:
     def generate_vertices(self):
         offset = self.WALKER_VERTICE_BUILDING_COMFORT_ZONE
 
-        self.vertices = []
         for wall in self.walls:
             if len( wall ) > 2 and wall[0] == wall[-1]:
                 self.vertices += vertices_for_corner( wall[1], wall[0], wall[-2], offset )
@@ -268,13 +269,20 @@ class PathWalker:
                 self.vertices += vertices_for_corner( wall_corner[0][0], wall_corner[0][1], wall_corner[1][1],
                                                       offset )
 
+    def rebuild_pathfinding_graph(self):
+        start_time = time.time()
+        self.vertices = []
+        self.edges = []
+        self.generate_vertices()
+        self.generate_edges()
+        end_time = time.time()
+        print( "rebuilding pathfinding graph took {} seconds".format( end_time-start_time ) )
+
     def add_new_wall(self, wall):
-        print( "new wall", wall )
         if len( wall ) == 3 and wall[0] == wall[-1]:
             wall = wall[0:2]
         self.walls.append( wall )
-        self.generate_vertices()
-        self.generate_edges()
+        self.rebuild_pathfinding_graph()
 
     def is_line_walkable(self, walk_line_segment):
         start_circle = geometry.Circle( walk_line_segment.start, self.WALKER_COMFORT_ZONE )
@@ -309,7 +317,6 @@ class PathWalker:
         return True
 
     def generate_edges(self):
-        self.edges = []
         for i in range( len( self.vertices ) ):
             for j in range( i+1, len( self.vertices ) ):
                 new_edge = geometry.LineSegment( self.vertices[ i ], self.vertices[ j ] )
@@ -321,11 +328,13 @@ class PathWalker:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT:
                 self.shift_pressed = True
+                return True
             elif event.key == pygame.K_RALT or event.key == pygame.K_LALT:
                 self.alt_pressed = True
+                return True
             elif event.key == pygame.K_RCTRL or event.key == pygame.K_LCTRL:
                 self.ctrl_pressed = True
-            return True
+                return True
 
         elif event.type == pygame.KEYUP:
             if event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT:
@@ -335,11 +344,13 @@ class PathWalker:
                     self.new_wall = None
                     self.redraw = True
                 self.shift_pressed = False
+                return True
             elif event.key == pygame.K_RALT or event.key == pygame.K_LALT:
                 self.alt_pressed = False
+                return True
             elif event.key == pygame.K_RCTRL or event.key == pygame.K_LCTRL:
                 self.ctrl_pressed = False
-            return True
+                return True
 
         return False
 
@@ -371,8 +382,7 @@ class PathWalker:
                                 self.walls.pop( i )
                             elif len( self.walls[i] ) == 3 and self.walls[i][0] == self.walls[i][-1]:
                                 self.walls[i].pop()
-                            self.generate_vertices()
-                            self.generate_edges()
+                            self.rebuild_pathfinding_graph()
                             self.redraw = True
                             return
             elif self.shift_pressed:
@@ -417,7 +427,10 @@ class PathWalker:
             elif self.shift_pressed:
                 pass
             else:
+                start_time = time.time( )
                 new_path = self.find_walk_path( geometry.Point( *event.pos ) )
+                end_time = time.time( )
+                print( "finding path took {} seconds".format( end_time-start_time ) )
                 if new_path is not None:
                     self.walker_path = new_path
                     self.walker_path_position = 0
@@ -444,7 +457,10 @@ class PathWalker:
             graph[ edge[0] ][ edge[1] ] = distance
             graph[ edge[1] ][ edge[0] ] = distance
 
+        start_time = time.time()
         path = pathfinder.find_cheapest_path_dijkstra( graph, vertice_count-2, vertice_count-1 )
+        end_time = time.time()
+        print( "dijkstra algorithm took {} seconds".format( end_time - start_time ) )
         if path is None:
             return None
 
@@ -484,14 +500,15 @@ class PathWalker:
 
     def handle_mouse_up(self, event):
         if self.dragged_corner is not None:
-            self.generate_vertices()
-            self.generate_edges()
+            self.rebuild_pathfinding_graph()
             self.dragged_corner = None
             self.redraw = True
 
     def run(self):
         print( """brief help:
 shift-click: add wall
+click+drag: move corner
+ctrl-click: remove corner
 right-click: walk
 ctrl-right-click: teleport
 """ )
@@ -522,6 +539,11 @@ ctrl-right-click: teleport
 
                 elif self.handle_alt_shift_ctrl( event ):
                     pass
+
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_F2:
+                        self.show_pathfinding_graph = not self.show_pathfinding_graph
+                        self.redraw = True
 
             if done:
                 break
