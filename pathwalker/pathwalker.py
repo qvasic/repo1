@@ -7,6 +7,8 @@ DONE:
 - debug absent edges - new wall [Point( 58, 48 ), Point( 58, 418 ), Point( 460, 439 ), Point( 464, 387 ), Point( 102, 375 ), Point( 103, 318 ), Point( 726, 357 ), Point( 715, 461 ), Point( 526, 449 ), Point( 517, 479 ), Point( 30, 460 ), Point( 27, 18 ), Point( 106, 20 ), Point( 98, 264 ), Point( 722, 306 ), Point( 722, 306 )]
 - creation of "closed" walls
 - implement is_line_walkable for walkers with size
+- change removing corner into breaking wall into two
+- add ability to connect two walls into one, just like finishing a loop
 
 TODO:
 - add bounding box check to intersect_line_segments
@@ -14,6 +16,8 @@ TODO:
 - if destination if too close to a wall - move destination out
 - corner cases for vertices generation - "not corner" corner, 0-degrees angle corner
 - keep an eye for does_line_segment_interfere_with_rect exceptions
+- is there a bug in checking final circle position in is_walkable function?
+- refactor walls editing ui part
 """
 
 
@@ -282,7 +286,6 @@ class PathWalker:
         if len( wall ) == 3 and wall[0] == wall[-1]:
             wall = wall[0:2]
         self.walls.append( wall )
-        self.rebuild_pathfinding_graph()
 
     def is_line_walkable(self, walk_line_segment):
         start_circle = geometry.Circle( walk_line_segment.start, self.WALKER_COMFORT_ZONE )
@@ -359,7 +362,17 @@ class PathWalker:
             if check_hit( self.new_wall[0].int_tuple( ), event.pos, self.HIT_SIZE ):
                 self.new_wall[-1] = self.new_wall[0]
             else:
-                self.new_wall[-1] = geometry.Point( *event.pos )
+                for wall in self.walls:
+                    if wall[0] == wall[-1]:
+                        continue
+                    if check_hit( wall[0].int_tuple( ), event.pos, self.HIT_SIZE ):
+                        self.new_wall[-1] = wall[0]
+                        break
+                    if check_hit(wall[-1].int_tuple(), event.pos, self.HIT_SIZE):
+                        self.new_wall[-1] = wall[-1]
+                        break
+                else:
+                    self.new_wall[-1] = geometry.Point( *event.pos )
             self.redraw = True
         elif self.dragged_corner is not None:
             wall = self.walls[ self.dragged_corner[0] ]
@@ -377,12 +390,29 @@ class PathWalker:
                 for i in range( len( self.walls ) ):
                     for j in range( len( self.walls[i] ) ):
                         if check_hit(self.walls[i][j].int_tuple(), event.pos, self.HIT_SIZE):
-                            self.walls[i].pop( j )
-                            if len( self.walls[i] ) == 1:
-                                self.walls.pop( i )
-                            elif len( self.walls[i] ) == 3 and self.walls[i][0] == self.walls[i][-1]:
-                                self.walls[i].pop()
-                            self.rebuild_pathfinding_graph()
+                            if j == 0 and self.walls[i][0] == self.walls[i][-1]:
+                                # this is closed wall and we're removing first/last - "unclose" the wall
+                                self.walls[i].pop(0)
+                                self.walls[i].pop(-1)
+                            elif j == 0 or j == len( self.walls[i] ) - 1:
+                                # first or last - just remove it
+                                self.walls[i].pop(j)
+                                if len( self.walls[i] ) < 2:
+                                    self.walls.pop( i )
+                            else:
+                                # remove an element in the middle
+                                if self.walls[i][0] == self.walls[i][-1]:
+                                    # if it is "closed" - unclose it
+                                    self.walls[i] = self.walls[i][j+1:-1] + self.walls[i][0:j]
+                                else:
+                                    # not "closed" wall - break it into two
+                                    if len( self.walls[i] ) - j - 1 >= 2:
+                                        self.walls.append( self.walls[i][j+1:] )
+                                    if j >= 2:
+                                        self.walls[i] = self.walls[i][0:j]
+                                    else:
+                                        self.walls.pop( i )
+
                             self.redraw = True
                             return
             elif self.shift_pressed:
@@ -399,17 +429,29 @@ class PathWalker:
                     else:
                         self.new_wall = [ geometry.Point( *event.pos ), geometry.Point( *event.pos ) ]
                 else:
-
                     if check_hit(self.new_wall[0].int_tuple(), event.pos, self.HIT_SIZE):
                         self.new_wall[-1] = self.new_wall[0]
+                        self.add_new_wall(self.new_wall)
+                        self.new_wall = None
                     else:
-                        self.new_wall[-1] = geometry.Point(*event.pos)
-                    if self.new_wall[-2] != self.new_wall[-1]:
-                        if self.new_wall[0] == self.new_wall[-1]:
-                            self.add_new_wall( self.new_wall )
-                            self.new_wall = None
+                        for i in range( len( self.walls ) ):
+                            if self.walls[i][0] == self.walls[i][-1]:
+                                continue
+
+                            if check_hit(self.walls[i][0].int_tuple(), event.pos, self.HIT_SIZE):
+                                self.walls[i] = self.new_wall[:-1] + self.walls[i]
+                                self.new_wall = None
+                                break
+
+                            if check_hit(self.walls[i][-1].int_tuple(), event.pos, self.HIT_SIZE):
+                                self.walls[i] = self.new_wall[:-1] + list( reversed( self.walls[i] ) )
+                                self.new_wall = None
+                                break
+
                         else:
-                            self.new_wall.append( geometry.Point( *event.pos ) )
+                            self.new_wall[-1] = geometry.Point(*event.pos)
+                            if self.new_wall[-2] != self.new_wall[-1]:
+                                self.new_wall.append( geometry.Point( *event.pos ) )
                 self.redraw = True
             else:
                 for i in range( len( self.walls ) ):
@@ -500,7 +542,6 @@ class PathWalker:
 
     def handle_mouse_up(self, event):
         if self.dragged_corner is not None:
-            self.rebuild_pathfinding_graph()
             self.dragged_corner = None
             self.redraw = True
 
@@ -544,6 +585,9 @@ F2 - show/hide pathfinding graph
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_F2:
                         self.show_pathfinding_graph = not self.show_pathfinding_graph
+                        self.redraw = True
+                    elif event.key == pygame.K_F3:
+                        self.rebuild_pathfinding_graph()
                         self.redraw = True
 
             if done:
