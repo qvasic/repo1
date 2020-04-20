@@ -9,6 +9,7 @@ DONE:
 - implement is_line_walkable for walkers with size
 - change removing corner into breaking wall into two
 - add ability to connect two walls into one, just like finishing a loop
+- is there a bug in checking final circle position in is_walkable function?
 
 TODO:
 - add bounding box check to intersect_line_segments
@@ -16,8 +17,7 @@ TODO:
 - if destination if too close to a wall - move destination out
 - corner cases for vertices generation - "not corner" corner, 0-degrees angle corner
 - keep an eye for does_line_segment_interfere_with_rect exceptions
-- is there a bug in checking final circle position in is_walkable function?
-- refactor walls editing ui part
+- refactor walls editing ui part, move appart walls editing, graph building, pathfinding and walking algos
 """
 
 
@@ -27,6 +27,7 @@ import time
 import json
 import geometry
 import pathfinder
+from obstacle_bypass import does_line_segment_interfere_with_rect, does_line_segment_interfere_with_circle
 
 LEFT_MOUSE_BUTTON = 1
 RIGHT_MOUSE_BUTTON = 3
@@ -123,58 +124,6 @@ def vertices_for_corner( point1, center_point, point2, offset ):
         return vertices_for_non_sharp_corner(point1, center_point, point2, offset)
 
 
-def is_line_segment_inside_intersection( line_segment, intersection_point1, intersection_point2 ):
-    """Determines whether a line is at least partially inside an intersection with other figure.
-    Intersection is defined by two points - intersection of line of line segment (yeah, right) with a figure
-    (be it circle, or triangle, or rectangle)."""
-
-    if line_segment.vertical:
-        return ( geometry.check_value_inside_bounds( line_segment.start.y, intersection_point1.y, intersection_point2.y )
-                 or geometry.check_value_inside_bounds( line_segment.end.y, intersection_point1.y, intersection_point2.y )
-                 or geometry.check_value_inside_bounds( intersection_point1.y, line_segment.start.y, line_segment.end.y )
-                 or geometry.check_value_inside_bounds( intersection_point2.y, line_segment.start.y, line_segment.end.y ) )
-    else:
-        return ( geometry.check_value_inside_bounds( line_segment.start.x, intersection_point1.x, intersection_point2.x )
-                 or geometry.check_value_inside_bounds( line_segment.end.x, intersection_point1.x, intersection_point2.x )
-                 or geometry.check_value_inside_bounds( intersection_point1.x, line_segment.start.x, line_segment.end.x )
-                 or geometry.check_value_inside_bounds( intersection_point2.x, line_segment.start.x, line_segment.end.x ) )
-
-
-def does_line_segment_interfere_with_circle( line_segment, circle ):
-    """Basically finds out whether line segment is at least partially inside a circle.
-    If line segment only "touches" the cirlce - it does not interfere."""
-
-    intersection_points = geometry.intersect_line_and_circle( circle, line_segment )
-
-    if len( intersection_points ) < 2:
-        return False
-
-    is_line_segment_inside_intersection( line_segment, intersection_points[0], intersection_points[1] )
-
-
-def does_line_segment_interfere_with_rect( line_segment, rect_segments ):
-    """Basically determines whether line segment is at least partially inside a rectangle.
-    Rectangle is defined by its edges, its definition is assumed to be correct and is not checked.
-    Actually this should work not only for rectangles, but for any figure with only bulging corners.
-    Yet this is not tested right now."""
-
-    intersection_points = []
-
-    for rect_segment in rect_segments:
-        intersection = geometry.intersect_line_and_line_segment( line_segment, rect_segment )
-        if type( intersection ) is geometry.Point:
-            intersection_points.append( intersection )
-
-    if len( intersection_points ) > 2:
-        raise ValueError( "Rectangle is incorrect, rect_segments={}, line_segment={}, intersection_points={}".format(
-            rect_segments, line_segment, intersection_points ) )
-
-    if len( intersection_points ) < 2:
-        return False
-
-    return is_line_segment_inside_intersection( line_segment, intersection_points[0], intersection_points[1] )
-
-
 class PathWalker:
     def __init__(self, save_file = None):
         self.SAVE_FILE = "walls.json"
@@ -193,8 +142,8 @@ class PathWalker:
 
         self.WALKER_COLOR = ( 64, 192, 64 )
         self.WALKER_SIZE = 8
-        self.WALKER_COMFORT_ZONE = 10
-        self.WALKER_VERTICE_BUILDING_COMFORT_ZONE = 11
+        self.WALKER_COMFORT_ZONE = self.WALKER_SIZE + 2
+        self.WALKER_VERTICE_BUILDING_COMFORT_ZONE = self.WALKER_COMFORT_ZONE + 1
 
         self.REDRAW_RATE = 90
 
@@ -311,7 +260,7 @@ class PathWalker:
                 wall_line_segment = geometry.LineSegment( wall_segment[0], wall_segment[1] )
 
                 if ( does_line_segment_interfere_with_circle( wall_line_segment, start_circle ) or
-                     does_line_segment_interfere_with_circle( wall_line_segment, start_circle ) ):
+                     does_line_segment_interfere_with_circle( wall_line_segment, end_circle ) ):
                     return False
 
                 if does_line_segment_interfere_with_rect( wall_line_segment, trajectory_bounding_rect_segments ):
