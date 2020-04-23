@@ -421,43 +421,34 @@ def intersect_bounds( a_lower, a_upper, b_lower, b_upper ):
 def intersect_line_segment_and_bounding_box( segment, bounding_box ):
     segment_bounding_box = segment.get_bounding_box()
     bounding_boxes_intersection = bounding_box.intersect( segment_bounding_box )
-    if bounding_boxes_intersection is not None and bounding_boxes_intersection == segment_bounding_box:
+
+    if bounding_boxes_intersection is None:
+        return None
+
+    if bounding_boxes_intersection == segment_bounding_box:
         return segment
 
     if segment.vertical:
-        if segment.x < bounding_box.y_lower or bounding_box.y_upper < segment.x:
-            return None
+        if bounding_boxes_intersection.y_lower == bounding_boxes_intersection.y_upper:
+            return Point( segment.x, bounding_boxes_intersection.y_lower )
 
-        bounds_intersection = intersect_bounds( segment.start.y, segment.end.y,
-                                                bounding_box.y_lower, bounding_box.y_upper )
-
-        if bounds_intersection is None:
-            return None
-
-        if bounds_intersection[0] == bounds_intersection[1]:
-            return Point( segment.x, bounds_intersection[0] )
-
-        return LineSegment( Point( segment.x, bounds_intersection[0] ), Point( segment.x, bounds_intersection[1] ) )
-
-    xes_intersection = intersect_bounds( segment.start.x, segment.end.x,
-                                         bounding_box.x_lower, bounding_box.x_upper )
-
-    if xes_intersection is None:
-        return None
+        return LineSegment( Point( segment.x, bounding_boxes_intersection.y_lower ),
+                            Point( segment.x, bounding_boxes_intersection.y_upper ) )
 
     if segment.start.y == segment.end.y:
         # horizontal line
         if not ( bounding_box.y_lower <= segment.start.y and segment.start.y <= bounding_box.y_upper ):
             return None
 
-        if xes_intersection[0] == xes_intersection[1]:
-            return Point( xes_intersection[0], segment.start.y )
+        if bounding_boxes_intersection.x_lower == bounding_boxes_intersection.x_upper:
+            return Point( bounding_boxes_intersection.x_lower, segment.start.y )
 
-        return LineSegment( Point( xes_intersection[0], segment.start.y ), Point( xes_intersection[1], segment.start.y ) )
+        return LineSegment( Point( bounding_boxes_intersection.x_lower, segment.start.y ),
+                            Point( bounding_boxes_intersection.x_upper, segment.start.y ) )
 
-    ys_intersection = segment.point_at_x( xes_intersection[0] ).y, segment.point_at_x( xes_intersection[1] ).y
-    ys_intersection = intersect_bounds( bounding_box.y_lower, bounding_box.y_upper, ys_intersection[0],
-                                        ys_intersection[1] )
+    ys_intersection = intersect_bounds( bounding_box.y_lower, bounding_box.y_upper,
+                                        segment.point_at_x( bounding_boxes_intersection.x_lower ).y,
+                                        segment.point_at_x( bounding_boxes_intersection.x_upper ).y )
 
     if ys_intersection is None:
         return None
