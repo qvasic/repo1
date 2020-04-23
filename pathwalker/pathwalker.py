@@ -10,9 +10,9 @@ DONE:
 - change removing corner into breaking wall into two
 - add ability to connect two walls into one, just like finishing a loop
 - is there a bug in checking final circle position in is_walkable function?
+- add bounding box check to intersect_line_segments
 
 TODO:
-- add bounding box check to intersect_line_segments
 - intersection of line segments which are on the same line
 - if destination if too close to a wall - move destination out
 - corner cases for vertices generation - "not corner" corner, 0-degrees angle corner
@@ -128,6 +128,8 @@ class PathWalker:
     def __init__(self, save_file = None):
         self.SAVE_FILE = "walls.json"
 
+        self.SCREEN_SIZE = (1000, 625)
+
         self.VERTICE_SIZE = 3
         self.HIT_SIZE = 6
 
@@ -171,12 +173,18 @@ class PathWalker:
 
     def load_walls(self):
         with open( self.SAVE_FILE ) as f:
-            self.walls = [ [ geometry.Point( *corner ) for corner in wall ] for wall in json.load( f )["walls"] ]
-        self.rebuild_pathfinding_graph()
+            json_file = json.load( f )
+            if "walls" in json_file:
+                self.walls = [ [ geometry.Point( int( corner[0] ), int( corner[1] ) ) for corner in wall ] for wall in json_file["walls"] ]
+            if "screen_size" in json_file:
+                self.SCREEN_SIZE = json_file["screen_size"]
+
+        # self.rebuild_pathfinding_graph()
 
     def save_walls(self):
         with open( self.SAVE_FILE, "w" ) as f:
-            json.dump( { "walls": [ [ ( corner.x, corner.y ) for corner in wall ] for wall in self.walls ] }, f )
+            json.dump( { "screen_size" : self.SCREEN_SIZE,
+                         "walls": [ [ ( corner.x, corner.y ) for corner in wall ] for wall in self.walls ] }, f )
 
     def redraw_screen(self, surface):
         surface.fill(self.BACKGROUND_COLOR)
@@ -227,9 +235,13 @@ class PathWalker:
         self.vertices = []
         self.edges = []
         self.generate_vertices()
+        vertices_end_time = time.time()
         self.generate_edges()
-        end_time = time.time()
-        print( "rebuilding pathfinding graph took {} seconds".format( end_time-start_time ) )
+        edges_end_time = time.time()
+        print( "rebuilding pathfinding graph took {} seconds ({} for vertices and {} for edges)".format(
+            edges_end_time-start_time,
+            vertices_end_time-start_time,
+            edges_end_time-vertices_end_time) )
 
     def add_new_wall(self, wall):
         if len( wall ) == 3 and wall[0] == wall[-1]:
@@ -412,6 +424,7 @@ class PathWalker:
             if self.alt_pressed:
                 pass
             elif self.ctrl_pressed:
+                print( "teleport", event.pos )
                 self.stop_walk()
                 self.walker_position = geometry.Point( *event.pos )
                 self.redraw = True
@@ -506,7 +519,7 @@ F2 - show/hide pathfinding graph
 
         pygame.init()
         pygame.display.set_caption("path walker")
-        screen = pygame.display.set_mode((1000, 625))
+        screen = pygame.display.set_mode( self.SCREEN_SIZE )
 
         self.redraw_screen(screen)
 
