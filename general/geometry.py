@@ -1,27 +1,34 @@
 import unittest
 import math
 
+DEFAULT_PRECISION = 0.0000000001
+
+
 def position_polyline( polyline, orient=(0,-1), posit=(0,0) ):
     import pygame.math
     angle = -pygame.math.Vector2( orient ).angle_to( (0, -1) )
     return [ [ rot+rel for rot, rel in zip( pygame.math.Vector2( p ).rotate( angle ), posit ) ]
              for p in polyline ]
 
+
 def rotate_vec( vec, orient, posit=(0,0) ):
     import pygame.math
     angle = -pygame.math.Vector2( orient ).angle_to( (0, -1) )
     return tuple( r+p for r, p in zip( pygame.math.Vector2( vec ).rotate( angle ), posit ) )
+
 
 def length( v ):
     """Return length of the vector v."""
     import math
     return math.sqrt( v[0]**2 + v[1]**2 )
 
+
 def redirect_vec( v_from, v_to ):
     """Redirects vector v_from in the direction of v_to.
     Basically it builds new vector of length of v_from in the direction v_to."""
     coef = length( v_from )/length( v_to )
     return [ c*coef for c in v_to ]
+
 
 def apply_threshold( seq, threshold ):
     """Apply threshold to sequence seq. If an absolute value of an element is less then threshold - then it becomes 0,
@@ -40,6 +47,37 @@ def check_value_inside_bounds( value, bound1, bound2 ):
     return bound1 <= value and value <= bound2
 
 
+class BoundingBox:
+    """Bounding box class. All limits are considered included."""
+    def __init__(self, x1, x2, y1, y2 ):
+        self.x_lower, self.x_upper = sorted( ( x1, x2 ) )
+        self.y_lower, self.y_upper = sorted( ( y1, y2 ) )
+
+    def intersect(self, other):
+        x_lower = max( self.x_lower, other.x_lower )
+        x_upper = min( self.x_upper, other.x_upper )
+
+        if x_lower > x_upper:
+            return None
+
+        y_lower = max( self.y_lower, other.y_lower )
+        y_upper = min( self.y_upper, other.y_upper )
+
+        if y_lower > y_upper:
+            return None
+
+        return BoundingBox( x_lower, x_upper, y_lower, y_upper )
+
+    def __eq__( self, other ):
+        return ( self.x_lower == other.x_lower
+                 and self.x_upper == other.x_upper
+                 and self.y_lower == other.y_lower
+                 and self.y_upper == other.y_upper )
+
+    def __ne__( self, other ):
+        return not self.__eq__( other )
+
+
 class Point:
     def __init__(self, x, y):
         self.x = x
@@ -47,6 +85,12 @@ class Point:
 
     def int_tuple(self):
         return int( self.x ), int( self.y )
+
+    def equal_with_precision(self, other, precision = DEFAULT_PRECISION):
+        return abs( self.x - other.x ) < precision and abs( self.y - other.y ) < precision
+
+    def get_bounding_box(self):
+        return BoundingBox( self.x, self.x, self.y, self.y )
 
     def __str__(self):
         return "Point( {}, {} )".format( self.x, self.y )
@@ -160,6 +204,9 @@ class LineSegment( Line ):
             if self.start.x > self.end.x:
                 self.start, self.end = self.end, self.start
 
+    def get_bounding_box(self):
+        return BoundingBox( self.start.x, self.end.x, self.start.y, self.end.y )
+
     def __str__(self):
         return "LineSegment( line={} start={} end={} )".format( Line.__str__( self ), self.start, self.end )
 
@@ -188,6 +235,10 @@ class Circle:
         assert( radius > 0 )
         self.center = center
         self.radius = radius
+
+    def get_bounding_box(self):
+        return BoundingBox( self.center.x - self.radius, self.center.x + self.radius,
+                            self.center.y - self.radius, self.center.y + self.radius )
 
     def __eq__(self, other):
         return type( other ) is Circle and self.center == other.center and self.radius == other.radius
@@ -266,6 +317,8 @@ def intersect_line_segments( segment1, segment2 ):
     If segment is contained by the line - it returns the line segment object."""
 
     # check bounding box intersection
+    if segment1.get_bounding_box().intersect( segment2.get_bounding_box() ) is None:
+        return None
 
     intersection = intersect_line_and_line_segment( segment1, segment2 )
 
@@ -320,10 +373,7 @@ def intersect_line_segment_and_circle( circle, segment ):
     Points are sorted by their distance to segment.start - meaning the closest will be first."""
 
     # check whether their bounding boxes even intersect
-    if ( ( max( segment.start.x, segment.end.x ) < circle.center.x - circle.radius
-                     or circle.center.x + circle.radius < min( segment.start.x, segment.end.x ) )
-                   and ( max( segment.start.y, segment.end.y ) < circle.center.y - circle.radius
-                         or circle.center.y + circle.radius < min( segment.start.y, segment.end.y ) ) ):
+    if circle.get_bounding_box().intersect( segment.get_bounding_box() ) is None:
         return tuple( )
 
     line_circle_intersection = intersect_line_and_circle( circle, segment )
@@ -351,6 +401,72 @@ def measure_out( start, end, distance ):
     x_change = distance / math.sqrt( movement_line.a ** 2 + 1 )
 
     return movement_line.point_at_x( start.x + direction * x_change )
+
+
+def intersect_bounds( a_lower, a_upper, b_lower, b_upper ):
+    if a_lower > a_upper:
+        a_lower, a_upper = a_upper, a_lower
+    if b_lower > b_upper:
+        b_lower, b_upper = b_upper, b_lower
+
+    lower = max( a_lower, b_lower )
+    upper = min( a_upper, b_upper )
+
+    if lower > upper:
+        return None
+
+    return lower, upper
+
+
+def intersect_line_segment_and_bounding_box( segment, bounding_box ):
+    segment_bounding_box = segment.get_bounding_box()
+    bounding_boxes_intersection = bounding_box.intersect( segment_bounding_box )
+    if bounding_boxes_intersection is not None and bounding_boxes_intersection == segment_bounding_box:
+        return segment
+
+    if segment.vertical:
+        if segment.x < bounding_box.y_lower or bounding_box.y_upper < segment.x:
+            return None
+
+        bounds_intersection = intersect_bounds( segment.start.y, segment.end.y,
+                                                bounding_box.y_lower, bounding_box.y_upper )
+
+        if bounds_intersection is None:
+            return None
+
+        if bounds_intersection[0] == bounds_intersection[1]:
+            return Point( segment.x, bounds_intersection[0] )
+
+        return LineSegment( Point( segment.x, bounds_intersection[0] ), Point( segment.x, bounds_intersection[1] ) )
+
+    xes_intersection = intersect_bounds( segment.start.x, segment.end.x,
+                                         bounding_box.x_lower, bounding_box.x_upper )
+
+    if xes_intersection is None:
+        return None
+
+    if segment.start.y == segment.end.y:
+        # horizontal line
+        if not ( bounding_box.y_lower <= segment.start.y and segment.start.y <= bounding_box.y_upper ):
+            return None
+
+        if xes_intersection[0] == xes_intersection[1]:
+            return Point( xes_intersection[0], segment.start.y )
+
+        return LineSegment( Point( xes_intersection[0], segment.start.y ), Point( xes_intersection[1], segment.start.y ) )
+
+    ys_intersection = segment.point_at_x( xes_intersection[0] ).y, segment.point_at_x( xes_intersection[1] ).y
+    ys_intersection = intersect_bounds( bounding_box.y_lower, bounding_box.y_upper, ys_intersection[0],
+                                        ys_intersection[1] )
+
+    if ys_intersection is None:
+        return None
+
+    if ys_intersection[0] == ys_intersection[1]:
+        return Point( ( ys_intersection[0] - segment.b ) / segment.a, ys_intersection[0] )
+
+    return LineSegment( Point( ( ys_intersection[0] - segment.b ) / segment.a, ys_intersection[0] ),
+                        Point( ( ys_intersection[1] - segment.b ) / segment.a, ys_intersection[1] ) )
 
 
 class TestPolylineProximityRoutines( unittest.TestCase ):
@@ -663,6 +779,103 @@ class TestPolylineProximityRoutines( unittest.TestCase ):
 
         self.assertTrue(Line(Point(0, 0), Point(1, 1)).are_on_the_same_side(Point(10, 11), Point(-0.1, 0)))
         self.assertFalse(Line(Point(0, 0), Point(1, -1)).are_on_the_same_side(Point(10, 0), Point(-0.1, 0)))
+
+    def test_intersect_bounding_boxes(self):
+        self.assertEqual( BoundingBox( 0, 10, 0, 10 ).intersect( BoundingBox( 1, 9, 1, 9 ) ),
+                          BoundingBox( 1, 9, 1, 9 ) )
+        self.assertEqual( BoundingBox( 0, 10, 0, 10 ).intersect( BoundingBox( 1, 11, 1, 9 ) ),
+                          BoundingBox( 1, 10, 1, 9 ) )
+        self.assertEqual( BoundingBox( 0, 10, 0, 10 ).intersect( BoundingBox( 10, 11, 1, 9 ) ),
+                          BoundingBox( 10, 10, 1, 9 ) )
+        self.assertEqual( BoundingBox( 0, 10, 0, 10 ).intersect( BoundingBox( 10.001, 11, 1, 9 ) ),
+                          None )
+
+    def test_intersect_line_segment_and_bounding_box(self):
+        # vertical lines
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( -1, 0 ), Point( -1, 10 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          None )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 20, 0 ), Point( 20, 10 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          None )
+
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 3, -10 ), Point( 3, -1 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          None )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 4, 11 ), Point( 4, 12 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          None )
+
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 5, 0 ), Point( 5, -1 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          Point( 5, 0 ) )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 5, 10 ), Point( 5, 11 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          Point( 5, 10 ) )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 5, 0 ), Point( 5, 10 ) ),
+                                                                   BoundingBox( 0, 10, 5, 5 ) ),
+                          Point( 5, 5 ) )
+
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 1, 0 ), Point( 1, 10 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          LineSegment( Point( 1, 0 ), Point( 1, 10 ) ) )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 1, -1 ), Point( 1, 11 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          LineSegment( Point( 1, 0 ), Point( 1, 10 ) ) )
+
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 1, -1 ), Point( 1, 5 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          LineSegment( Point( 1, 0 ), Point( 1, 5 ) ) )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 1, 11 ), Point( 1, 5 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          LineSegment( Point( 1, 10 ), Point( 1, 5 ) ) )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 1, 11 ), Point( 1, 5 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          LineSegment( Point( 1, 10 ), Point( 1, 5 ) ) )
+
+        # non-vertical lines
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( -1, 11 ), Point( -10, 5 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          None )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 11, 11 ), Point( 20, 5 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          None )
+
+        # horizontal lines
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 5, -1 ), Point( 7, -1 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          None )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 5, 11 ), Point( 7, 11 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          None )
+
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 10, 8 ), Point( 11, 8 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          Point( 10, 8 ) )
+
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 7, 8 ), Point( 11, 8 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          LineSegment( Point( 7, 8 ), Point( 10, 8 ) ) )
+
+        # non-horizontal lines
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 0, -2 ), Point( 1, -1 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          None )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 0, 100 ), Point( 1, 11 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          None )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 0, 20 ), Point( 20, 0 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          Point( 10, 10 ) )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 1, -5 ), Point( 5, 5 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          LineSegment( Point( 3, 0 ), Point( 5, 5 ) ) )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( -1, 8 ), Point( 11, 2 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          LineSegment( Point( 0, 7.5 ), Point( 10, 2.5 ) ) )
+        self.assertEqual( intersect_line_segment_and_bounding_box( LineSegment( Point( 2, -2 ), Point( -1, 4 ) ),
+                                                                   BoundingBox( 0, 10, 0, 10 ) ),
+                          LineSegment( Point( 0, 2 ), Point( 1, 0 ) ) )
 
 
 
