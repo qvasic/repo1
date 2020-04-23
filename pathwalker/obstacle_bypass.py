@@ -1,6 +1,18 @@
 import geometry
 import unittest
 
+
+def remove_equal( l, equal = lambda x, y: x == y ):
+    i = 0
+    while i < len( l ):
+        for j in range( i + 1, len( l ) ):
+            if equal( l[i], l[j] ):
+                l.pop( i )
+                break
+        else:
+            i += 1
+
+
 def is_line_segment_inside_intersection( line_segment, intersection_point1, intersection_point2 ):
     """Determines whether a line is at least partially inside an intersection with other figure.
     Intersection is defined by two points - intersection of line of line segment (yeah, right) with a figure
@@ -42,6 +54,8 @@ def does_line_segment_interfere_with_rect( line_segment, rect_segments ):
         intersection = geometry.intersect_line_and_line_segment( line_segment, rect_segment )
         if type( intersection ) is geometry.Point:
             intersection_points.append( intersection )
+
+    remove_equal( intersection_points, lambda x, y: x.equal_with_precision( y ) )
 
     if len( intersection_points ) > 2:
         raise ValueError( "Rectangle is incorrect, rect_segments={}, line_segment={}, intersection_points={}".format(
