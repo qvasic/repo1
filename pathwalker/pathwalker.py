@@ -11,6 +11,7 @@ DONE:
 - add ability to connect two walls into one, just like finishing a loop
 - is there a bug in checking final circle position in is_walkable function?
 - add bounding box check to intersect_line_segments
+- implement QuadTree
 
 TODO:
 - intersection of line segments which are on the same line
@@ -18,6 +19,8 @@ TODO:
 - corner cases for vertices generation - "not corner" corner, 0-degrees angle corner
 - keep an eye for does_line_segment_interfere_with_rect exceptions
 - refactor walls editing ui part, move appart walls editing, graph building, pathfinding and walking algos
+- utilize QuadTree for pathwalker
+- improve QuadTree random testing, fix a bug there
 """
 
 

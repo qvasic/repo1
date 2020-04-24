@@ -68,6 +68,10 @@ class BoundingBox:
 
         return BoundingBox( x_lower, x_upper, y_lower, y_upper )
 
+    def __contains__(self, point):
+        return ( self.x_lower <= point.x and point.x <= self.x_upper
+                 and self.y_lower <= point.y and point.y <= self.y_upper )
+
     def __eq__( self, other ):
         return ( self.x_lower == other.x_lower
                  and self.x_upper == other.x_upper
