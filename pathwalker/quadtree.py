@@ -148,7 +148,7 @@ class QuadTreeTests(unittest.TestCase):
 
 
 	def test_quad_tree_smoke_test(self):
-		quad_tree = QuadTree( 0, 0, 100, 100 )
+		quad_tree = QuadTree( BoundingBox( 0, 0, 100, 100 ) )
 		quad_tree.add( LineSegment( Point( 10, 10 ), Point( 20, 20 ) ) )
 		self.assertEqual( quad_tree.get( BoundingBox( 10, 90, 10, 90 ) ),
 						  [ LineSegment( Point( 10, 10 ), Point( 20, 20 ) ) ] )
@@ -165,11 +165,7 @@ class QuadTreeTests(unittest.TestCase):
 
 		self.assertTrue( type( quad_tree.get( BoundingBox( 10, 90, 10, 90 ) ) ) is list )
 
-	def test_quad_tree_performance(self):
-		segment_count = 35
-		segment_size_variation = 20
-		test_area = BoundingBox(0, 100, 0, 100)
-
+	def run_quad_tree_performance_test( test_area, segment_count, segment_size_variation):
 		segments = []
 
 		for i in range(segment_count):
@@ -180,11 +176,6 @@ class QuadTreeTests(unittest.TestCase):
 				point2 = Point(point1.x + randint(-segment_size_variation, segment_size_variation),
 							   point1.y + randint(-segment_size_variation, segment_size_variation))
 
-			"""
-			point2 = QuadTreeTests.random_point( test_area )
-			while point1 == point2:
-				point2 = QuadTreeTests.random_point( test_area )
-			"""
 			segments.append( LineSegment( point1, point2 ) )
 
 		def calculate_all_intersections_full_iteration( segments ):
@@ -226,8 +217,27 @@ class QuadTreeTests(unittest.TestCase):
 		print( "quad tree built in {:.3} seconds".format( quad_tree_build_time ) )
 		print( "quad tree intersections took {:.3} seconds".format( quad_tree_intersections_time ) )
 
-		self.assertEqual( full_iteration_intersections, quad_tree_intersections )
+		if full_iteration_intersections == quad_tree_intersections:
+			print( "success" )
+			return True
+		else:
+			print( "failure" )
+			common = full_iteration_intersections.intersection( quad_tree_intersections )
+			full_iteration_unique_intersections = full_iteration_intersections.difference( quad_tree_intersections )
+			quad_tree_unique_intersections = quad_tree_intersections.difference( full_iteration_intersections )
+			print( "segments:", segments )
+			print( "full iteration unique intersections:", full_iteration_unique_intersections )
+			print( "common intersections:", common )
+			print( "quad tree unique intersections:", quad_tree_unique_intersections )
+			return False
 
+	def test_quad_tree_performance(self):
+		runs = 10
+		success = True
+		for i in range( runs ):
+			success = QuadTreeTests.run_quad_tree_performance_test( BoundingBox(0, 20, 0, 20), 20, 4 ) and success
+
+		self.assertTrue( success )
 
 
 	def test_non_including_bounding_boxes_intersection(self):
