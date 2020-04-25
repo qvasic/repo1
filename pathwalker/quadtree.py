@@ -4,6 +4,33 @@ from random import randint
 import time
 from itertools import chain
 
+def get_line_segment_multiple_bounding_boxes( segment, count ):
+	x_step = ( segment.end.x - segment.start.x ) / count
+	y_step = ( segment.end.y - segment.start.y ) / count
+	result = []
+	for i in range( count ):
+		result.append( BoundingBox( segment.start.x + x_step * i, segment.start.x + x_step * ( i + 1 ),
+									segment.start.y + y_step * i, segment.start.y + y_step * ( i + 1 ) ) )
+
+	return result
+
+
+def get_line_segment_bounding_boxes( segment, min_len = 100, max_count = 5 ):
+	"""When finding all candidates that a line segment may intersect, bounding boxes may get too large - for instance
+	for diagonal lines. In this case we can use a number of smaller bounding boxes, drastically bringing down number of
+	candidates to check against."""
+	bounding_box = segment.get_bounding_box( )
+	x_side = bounding_box.x_upper - bounding_box.x_lower
+	y_side = bounding_box.y_upper - bounding_box.y_lower
+	shorter_side, longer_side = min( x_side, y_side ), max( x_side, y_side )
+
+	if shorter_side < longer_side / max_count:
+		return [ bounding_box ]
+
+	for i in range( 2, max_count + 1 ):
+		if shorter_side <= longer_side / max_count * i:
+			return get_line_segment_multiple_bounding_boxes( segment, i )
+
 
 def do_bounding_boxes_intersect_not_including_upper_limits( bounding_box, non_including_bounding_box ):
 	"""Checks whether two bounding boxes intersect, taking into account that one the boxes has
@@ -79,14 +106,25 @@ class QuadTree:
 			self.max_level = max_level
 			self.subquadrants = None
 
-		def add( self, elem ):
-			intersection = elem.intersect_bounding_box( self.bounding_box )
+		def dump(self):
+			tabulation = "  " * self.level
+			print( "{}QuadTreeQuadrant, bounding_box = {}, level = {}, max_elems = {}, max_level = {}".format(
+				tabulation, self.bounding_box, self.level, self.max_elems, self.max_level ) )
 
-			if intersection is None:
-				return
+			if self.subquadrants is not None:
+				print( "{}elems = {}".format( tabulation, self.elems ) )
+				print( "{}quadrants = ".format( tabulation ) )
+				for quadrant in self.subquadrants:
+					quadrant.dump()
+			else:
+				print( "{}quadrants = {}".format( tabulation, self.subquadrants ) )
+				print( "{}elems = {}".format( tabulation, self.elems ) )
 
-			if not do_bounding_boxes_intersect_not_including_upper_limits( intersection.get_bounding_box(),
-																		   self.bounding_box ):
+		def add( self, new_elem ):
+			intersection = new_elem.intersect_bounding_box( self.bounding_box )
+
+			if intersection is None or not do_bounding_boxes_intersect_not_including_upper_limits(
+					intersection.get_bounding_box(), self.bounding_box ):
 				return
 
 			if len( self.elems ) >= self.max_elems and self.level < self.max_level:
@@ -101,9 +139,9 @@ class QuadTree:
 
 			if self.subquadrants is not None:
 				for subquadrant in self.subquadrants:
-					subquadrant.add( elem )
+					subquadrant.add( new_elem )
 			else:
-				self.elems.append( elem )
+				self.elems.append( new_elem )
 
 		def get(self, bounding_box):
 			if not do_bounding_boxes_intersect_not_including_upper_limits( bounding_box, self.bounding_box ):
@@ -122,11 +160,17 @@ class QuadTree:
 		self.elems_around_root_quadrant = []
 		self.main_quadrant = QuadTree.QuadTreeQuadrant( self.main_bounding_box, max_elems, 0, max_level )
 
-	def add( self, element ):
-		self.main_quadrant.add( element )
-		if not is_bounding_box_fully_inside_bounding_box_not_including_upper_limits( element.get_bounding_box(),
+	def dump( self ):
+		print( "QuadTree" )
+		print( "elems_around_root_quadrant={}".format( self.elems_around_root_quadrant ) )
+		print( "main_quadrant=" )
+		self.main_quadrant.dump( )
+
+	def add( self, new_element ):
+		self.main_quadrant.add( new_element )
+		if not is_bounding_box_fully_inside_bounding_box_not_including_upper_limits( new_element.get_bounding_box(),
 																					 self.main_bounding_box ):
-			self.elems_around_root_quadrant.append( element )
+			self.elems_around_root_quadrant.append( new_element )
 
 	def get( self, bounding_box ):
 		if ( not is_bounding_box_fully_inside_bounding_box_not_including_upper_limits( bounding_box,
@@ -175,7 +219,13 @@ class QuadTreeTests(unittest.TestCase):
 
 		self.assertTrue( type( quad_tree.get( BoundingBox( 10, 90, 10, 90 ) ) ) is list )
 
-	def run_quad_tree_performance_test( test_area, segment_count, segment_size_variation):
+	def run_quad_tree_performance_test( test_area, segment_count, segment_size_variation,
+										use_multiple_bounding_boxes_per_segment = False ):
+		class IndexedLineSegment(LineSegment):
+			def __init__( self, index, p1, p2 ):
+				self.index = index
+				LineSegment.__init__( self, p1, p2 )
+
 		segments = []
 
 		for i in range(segment_count):
@@ -186,15 +236,17 @@ class QuadTreeTests(unittest.TestCase):
 				point2 = Point(point1.x + randint(-segment_size_variation, segment_size_variation),
 							   point1.y + randint(-segment_size_variation, segment_size_variation))
 
-			segments.append( LineSegment( point1, point2 ) )
+			segments.append( IndexedLineSegment( i, point1, point2 ) )
 
 		def calculate_all_intersections_full_iteration( segments ):
 			intersections = set( )
 			for i in range( len( segments ) ):
-				for j in range( i+1, len( segments ) ):
+				for j in range( 0, len( segments ) ):
+					if i == j:
+						continue
 					intersection = intersect_line_segments( segments[i], segments[j] )
 					if type( intersection ) is Point:
-						intersections.add( ( intersection.x, intersection.y ) )
+						intersections.add( ( intersection.x, intersection.y, i, j ) )
 
 			return intersections
 
@@ -206,14 +258,21 @@ class QuadTreeTests(unittest.TestCase):
 
 		def calculate_all_intersections_quad_tree( segments, quad_tree ):
 			intersections = set( )
-			for segment in segments:
-				possible_intersectors = quad_tree.get( segment.get_bounding_box( ) )
+			for i in range( len( segments ) ):
+
+				if use_multiple_bounding_boxes_per_segment:
+					possible_intersectors = []
+					for bounding_box in get_line_segment_bounding_boxes( segments[i] ):
+						possible_intersectors += quad_tree.get( bounding_box )
+				else:
+					possible_intersectors = quad_tree.get( segments[i].get_bounding_box( ) )
+
 				for possible_intersector in possible_intersectors:
-					if possible_intersector is segment:
+					if possible_intersector.index == i:
 						continue
-					intersection = intersect_line_segments( segment, possible_intersector )
+					intersection = intersect_line_segments( segments[i], possible_intersector )
 					if type( intersection ) is Point:
-						intersections.add( ( intersection.x, intersection.y ) )
+						intersections.add( ( intersection.x, intersection.y, i, possible_intersector.index ) )
 
 			return intersections
 
@@ -228,10 +287,10 @@ class QuadTreeTests(unittest.TestCase):
 		print( "quad tree intersections took {:.3} seconds".format( quad_tree_intersections_time ) )
 
 		if full_iteration_intersections == quad_tree_intersections:
-			print( "success" )
+			print( "SUCCESS" )
 			return True
 		else:
-			print( "failure" )
+			print( "FAILURE" )
 			common = full_iteration_intersections.intersection( quad_tree_intersections )
 			full_iteration_unique_intersections = full_iteration_intersections.difference( quad_tree_intersections )
 			quad_tree_unique_intersections = quad_tree_intersections.difference( full_iteration_intersections )
@@ -239,13 +298,33 @@ class QuadTreeTests(unittest.TestCase):
 			print( "full iteration unique intersections:", full_iteration_unique_intersections )
 			print( "common intersections:", common )
 			print( "quad tree unique intersections:", quad_tree_unique_intersections )
+			print( "quad tree dump:" )
+			quad_tree.dump( )
 			return False
 
 	def test_quad_tree_performance(self):
-		runs = 10
+		runs = 5
 		success = True
+
+		print( "\n === SUPER SPARSE === \n" )
 		for i in range( runs ):
-			success = QuadTreeTests.run_quad_tree_performance_test( BoundingBox(0, 20, 0, 20), 20, 4 ) and success
+			success = QuadTreeTests.run_quad_tree_performance_test( BoundingBox(0, 1000, 0, 1000), 1500, 8 ) and success
+
+		print( "\n === SPARSE === \n" )
+		for i in range( runs ):
+			success = QuadTreeTests.run_quad_tree_performance_test( BoundingBox(0, 1000, 0, 1000), 1500, 80 ) and success
+
+		print( "\n === DENSE === \n" )
+		for i in range( runs ):
+			success = QuadTreeTests.run_quad_tree_performance_test( BoundingBox(0, 1000, 0, 1000), 1500, 250 ) and success
+
+		print( "\n === SUPER DENSE === \n" )
+		for i in range( runs ):
+			success = QuadTreeTests.run_quad_tree_performance_test( BoundingBox(0, 1000, 0, 1000), 1500, 600 ) and success
+
+		print( "\n === SUPER DENSE with multiple bounding boxes per segment === \n" )
+		for i in range( runs ):
+			success = QuadTreeTests.run_quad_tree_performance_test( BoundingBox(0, 1000, 0, 1000), 1500, 600, True ) and success
 
 		self.assertTrue( success )
 

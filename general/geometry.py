@@ -81,6 +81,12 @@ class BoundingBox:
     def __ne__( self, other ):
         return not self.__eq__( other )
 
+    def __str__(self):
+        return "BoundingBox( x_lower={}, x_upper={}, y_lower={}, y_upper={} )".format( self.x_lower, self.x_upper,
+
+    def __repr__(self):
+        return self.__str__( )
+
 
 class Point:
     def __init__(self, x, y):
