@@ -20,23 +20,6 @@ def do_bounding_boxes_intersect_not_including_upper_limits( bounding_box, non_in
 	return True
 
 
-def do_line_segment_and_bounding_box_intersect_not_including_upper_limits( segment, non_including_bounding_box ):
-	"""Checks whether linesegemnt and bounding box intersect, taking into account that upper limits of
-	the bounding box are non-including."""
-
-	intersection = intersect_line_segment_and_bounding_box( segment, non_including_bounding_box )
-
-	if intersection is None:
-		return False
-
-	intersection_bounding_box = intersection.get_bounding_box()
-	if ( intersection_bounding_box.x_lower == non_including_bounding_box.x_upper
-		 or intersection_bounding_box.y_lower == non_including_bounding_box.y_upper ):
-		return False
-
-	return True
-
-
 def is_bounding_box_fully_inside_bounding_box_not_including_upper_limits( bounding_box, non_including_bounding_box ):
 	"""Checks whether a bounding box is fully inside another bounding box, for which upper limits are not included."""
 	intersection = bounding_box.intersect( non_including_bounding_box )
@@ -61,7 +44,31 @@ def break_bounding_box_into_quadrants( bounding_box ):
 
 
 class QuadTree:
-	"""Quad tree for lines."""
+	"""Quad tree for objects.
+
+	Elements must implement two important methods:
+
+	get_bounding_box - returns full bounding box of the object.
+
+    intersect_bounding_box - returns an object which is intersection with bounding box, returned object must also have
+    get_bounding_box. If object does not intersect bounding box - should return None.
+
+    VERY IMPORTANT: it is not an intersection of bounding boxes! Let's consider an example if element is a line.
+
+                            o         Both of these bounding boxes are withing line's bounding box, but only one
+    +-----------+---------/-+         of those bounding boxes actually contains any line's points. Only
+    | bounding  | bound /   |         line.intersect_bounding_box( bounding_box_2 ) should return intersection object.
+    | box 1     | ing / box |         line.intersect_bounding_box( bounding_box_1 ) should return None.
+    |           |   /    2  |
+    +-----------+-/---------+         This is how only those quadrants which have any part of an element would
+                /                     contain references to the element.
+              /
+            /
+          /
+        /
+      /
+    o
+    """
 
 	class QuadTreeQuadrant:
 		def __init__(self, bounding_box, max_elems, level, max_level):
@@ -72,8 +79,14 @@ class QuadTree:
 			self.max_level = max_level
 			self.subquadrants = None
 
-		def add(self, line):
-			if not do_line_segment_and_bounding_box_intersect_not_including_upper_limits( line, self.bounding_box ):
+		def add( self, elem ):
+			intersection = elem.intersect_bounding_box( self.bounding_box )
+
+			if intersection is None:
+				return
+
+			if not do_bounding_boxes_intersect_not_including_upper_limits( intersection.get_bounding_box(),
+																		   self.bounding_box ):
 				return
 
 			if len( self.elems ) >= self.max_elems and self.level < self.max_level:
@@ -88,9 +101,9 @@ class QuadTree:
 
 			if self.subquadrants is not None:
 				for subquadrant in self.subquadrants:
-					subquadrant.add( line )
+					subquadrant.add( elem )
 			else:
-				self.elems.append( line )
+				self.elems.append( elem )
 
 		def get(self, bounding_box):
 			if not do_bounding_boxes_intersect_not_including_upper_limits( bounding_box, self.bounding_box ):
@@ -106,30 +119,27 @@ class QuadTree:
 
 	def __init__( self, bounding_box, max_elems = 8, max_level = 8 ):
 		self.main_bounding_box = bounding_box
-		self.max_elems = max_elems
-		self.max_level = max_level
-
 		self.elems_around_root_quadrant = []
-		self.main_quadrant = QuadTree.QuadTreeQuadrant( self.main_bounding_box, self.max_elems, 0, self.max_level )
+		self.main_quadrant = QuadTree.QuadTreeQuadrant( self.main_bounding_box, max_elems, 0, max_level )
 
-	def add( self, line ):
-		self.main_quadrant.add( line )
-		if ( not is_bounding_box_fully_inside_bounding_box_not_including_upper_limits( line.get_bounding_box(),
-																					   self.main_bounding_box ) ):
-			self.elems_around_root_quadrant.append( line )
+	def add( self, element ):
+		self.main_quadrant.add( element )
+		if not is_bounding_box_fully_inside_bounding_box_not_including_upper_limits( element.get_bounding_box(),
+																					 self.main_bounding_box ):
+			self.elems_around_root_quadrant.append( element )
 
 	def get( self, bounding_box ):
-		line_ids = set( )
-		result = []
 		if ( not is_bounding_box_fully_inside_bounding_box_not_including_upper_limits( bounding_box,
 																					   self.main_bounding_box ) ):
-			excessive_line_list = chain( self.main_quadrant.get( bounding_box ), self.elems_around_root_quadrant )
+			excessive_elem_list = chain( self.main_quadrant.get( bounding_box ), self.elems_around_root_quadrant )
 		else:
-			excessive_line_list = self.main_quadrant.get( bounding_box )
+			excessive_elem_list = self.main_quadrant.get( bounding_box )
 
-		for line in excessive_line_list:
-			if id( line ) not in line_ids:
-				line_ids.add( id( line ) )
+		elem_ids = set( )
+		result = []
+		for line in excessive_elem_list:
+			if id( line ) not in elem_ids:
+				elem_ids.add( id( line ) )
 				result.append( line )
 
 		return result
@@ -249,24 +259,6 @@ class QuadTreeTests(unittest.TestCase):
 																				  BoundingBox( 0, 10, 0, 10 ) ) )
 		self.assertFalse( do_bounding_boxes_intersect_not_including_upper_limits( BoundingBox( 10, 12, 10, 12 ),
 																				  BoundingBox( 0, 10, 0, 10 ) ) )
-
-	def test_line_segment_and_non_including_bounding_box_intersection(self):
-		self.assertTrue( do_line_segment_and_bounding_box_intersect_not_including_upper_limits(
-			LineSegment( Point( 1, 1 ), Point( 2, 2 ) ),
-			BoundingBox(0, 10, 0, 10) ) )
-		self.assertTrue( do_line_segment_and_bounding_box_intersect_not_including_upper_limits(
-			LineSegment( Point( -1, 1 ), Point( 1, -1 ) ),
-			BoundingBox(0, 10, 0, 10) ) )
-
-		self.assertFalse( do_line_segment_and_bounding_box_intersect_not_including_upper_limits(
-			LineSegment( Point( -1, 1 ), Point( 0.99, -1 ) ),
-			BoundingBox(0, 10, 0, 10) ) )
-		self.assertFalse( do_line_segment_and_bounding_box_intersect_not_including_upper_limits(
-			LineSegment( Point( 10, 1 ), Point( 10, -1 ) ),
-			BoundingBox(0, 10, 0, 10) ) )
-		self.assertFalse( do_line_segment_and_bounding_box_intersect_not_including_upper_limits(
-			LineSegment( Point( 1, 10 ), Point( 2, 10 ) ),
-			BoundingBox(0, 10, 0, 10) ) )
 
 	def test_is_bounding_box_fully_inside_bounding_box_not_including_upper_limits(self):
 		self.assertTrue( is_bounding_box_fully_inside_bounding_box_not_including_upper_limits(

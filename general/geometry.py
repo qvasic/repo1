@@ -211,6 +211,9 @@ class LineSegment( Line ):
     def get_bounding_box(self):
         return BoundingBox( self.start.x, self.end.x, self.start.y, self.end.y )
 
+    def intersect_bounding_box(self, bounding_box):
+        return intersect_line_segment_and_bounding_box( self, bounding_box )
+
     def __str__(self):
         return "LineSegment( line={} start={} end={} )".format( Line.__str__( self ), self.start, self.end )
 
