@@ -12,6 +12,8 @@ DONE:
 - is there a bug in checking final circle position in is_walkable function?
 - add bounding box check to intersect_line_segments
 - implement QuadTree
+- improve QuadTree random testing, fix a bug there
+- utilize QuadTree for pathwalker
 
 TODO:
 - intersection of line segments which are on the same line
@@ -19,8 +21,9 @@ TODO:
 - corner cases for vertices generation - "not corner" corner, 0-degrees angle corner
 - keep an eye for does_line_segment_interfere_with_rect exceptions
 - refactor walls editing ui part, move appart walls editing, graph building, pathfinding and walking algos
-- utilize QuadTree for pathwalker
-- improve QuadTree random testing, fix a bug there
+- keep an eye on some rare flaky test failures for QuadTree
+- REFACTOR THE SHT OUT OF ALL OF THAT
+
 """
 
 
@@ -31,6 +34,7 @@ import json
 import geometry
 import pathfinder
 from obstacle_bypass import does_line_segment_interfere_with_rect, does_line_segment_interfere_with_circle
+from quadtree import QuadTree, get_line_segment_bounding_boxes
 
 LEFT_MOUSE_BUTTON = 1
 RIGHT_MOUSE_BUTTON = 3
@@ -145,6 +149,8 @@ class PathWalker:
         self.VERTICE_COLOR = ( 220, 220, 255 )
         self.EDGE_COLOR = ( 240, 240, 255 )
 
+        self.QUAD_TREE_RECT_COLOR = ( 224, 232, 224 )
+
         self.WALKER_COLOR = ( 64, 192, 64 )
         self.WALKER_SIZE = 8
         self.WALKER_COMFORT_ZONE = self.WALKER_SIZE + 2
@@ -157,12 +163,15 @@ class PathWalker:
         self.ctrl_pressed = False
 
         self.show_pathfinding_graph = False
+        self.show_quad_tree_rects = False
 
         self.walls = []
+        self.quad_tree = None
         self.new_wall = None
         self.dragged_corner = None
         self.vertices = []
         self.edges = []
+        self.quad_tree_rects = []
 
         self.walker_position = geometry.Point( 200, 200 )
         self.walker_path = None
@@ -191,6 +200,10 @@ class PathWalker:
 
     def redraw_screen(self, surface):
         surface.fill(self.BACKGROUND_COLOR)
+
+        if self.show_quad_tree_rects:
+            for rect in self.quad_tree_rects:
+                pygame.draw.rect( surface, self.QUAD_TREE_RECT_COLOR, rect, 1 )
 
         if self.show_pathfinding_graph:
             for edge in self.edges:
@@ -233,18 +246,40 @@ class PathWalker:
                 self.vertices += vertices_for_corner( wall_corner[0][0], wall_corner[0][1], wall_corner[1][1],
                                                       offset )
 
+    def rebuild_quad_tree(self):
+        self.quad_tree = QuadTree( geometry.BoundingBox( 0, self.SCREEN_SIZE[0], 0, self.SCREEN_SIZE[1] ), max_elems=4 )
+        for wall in self.walls:
+            for wall_segment in pairwise( wall ):
+                self.quad_tree.add( geometry.LineSegment( wall_segment[0], wall_segment[1] ) )
+
+        def get_quadrants_rects( quadrant ):
+            if quadrant.subquadrants is not None:
+                for subquadrant in quadrant.subquadrants:
+                    get_quadrants_rects( subquadrant )
+            else:
+                self.quad_tree_rects.append( pygame.Rect( quadrant.bounding_box.x_lower, quadrant.bounding_box.y_lower,
+                                                          quadrant.bounding_box.x_upper - quadrant.bounding_box.x_lower + 1,
+                                                          quadrant.bounding_box.y_upper - quadrant.bounding_box.y_lower + 1 ) )
+
+        get_quadrants_rects( self.quad_tree.main_quadrant )
+
+
     def rebuild_pathfinding_graph(self):
-        start_time = time.time()
+        self.quad_tree = None
         self.vertices = []
         self.edges = []
+        start_time = time.time()
         self.generate_vertices()
         vertices_end_time = time.time()
+        self.rebuild_quad_tree()
+        quad_tree_end_time = time.time( )
         self.generate_edges()
         edges_end_time = time.time()
-        print( "rebuilding pathfinding graph took {} seconds ({} for vertices and {} for edges)".format(
+        print( "rebuilding pathfinding graph took {} seconds ({} for vertices, {} for quad tree and {} for edges)".format(
             edges_end_time-start_time,
             vertices_end_time-start_time,
-            edges_end_time-vertices_end_time) )
+            quad_tree_end_time-vertices_end_time,
+            edges_end_time-quad_tree_end_time ) )
 
     def add_new_wall(self, wall):
         if len( wall ) == 3 and wall[0] == wall[-1]:
@@ -252,6 +287,9 @@ class PathWalker:
         self.walls.append( wall )
 
     def is_line_walkable(self, walk_line_segment):
+        if self.quad_tree is None:
+            return False
+
         start_circle = geometry.Circle( walk_line_segment.start, self.WALKER_COMFORT_ZONE )
         end_circle = geometry.Circle( walk_line_segment.end, self.WALKER_COMFORT_ZONE )
 
@@ -270,16 +308,17 @@ class PathWalker:
             geometry.LineSegment( end_points[0], start_points[0] )
         ]
 
-        for wall in self.walls:
-            for wall_segment in pairwise( wall ):
-                wall_line_segment = geometry.LineSegment( wall_segment[0], wall_segment[1] )
+        potentially_interfering_walls = []
+        for bounding_box in get_line_segment_bounding_boxes( walk_line_segment ):
+            potentially_interfering_walls += self.quad_tree.get( bounding_box.expand( self.WALKER_COMFORT_ZONE + 1 ) )
 
-                if ( does_line_segment_interfere_with_circle( wall_line_segment, start_circle ) or
-                     does_line_segment_interfere_with_circle( wall_line_segment, end_circle ) ):
-                    return False
+        for wall_line_segment in potentially_interfering_walls:
+            if ( does_line_segment_interfere_with_circle( wall_line_segment, start_circle ) or
+                 does_line_segment_interfere_with_circle( wall_line_segment, end_circle ) ):
+                return False
 
-                if does_line_segment_interfere_with_rect( wall_line_segment, trajectory_bounding_rect_segments ):
-                    return False
+            if does_line_segment_interfere_with_rect( wall_line_segment, trajectory_bounding_rect_segments ):
+                return False
 
         return True
 
@@ -518,6 +557,8 @@ ctrl-click: remove corner
 right-click: walk
 ctrl-right-click: teleport
 F2 - show/hide pathfinding graph
+F3 - rebuild pathfinding graph
+F4 - show/hide quad tree rects
 """ )
 
         pygame.init()
@@ -553,6 +594,9 @@ F2 - show/hide pathfinding graph
                         self.redraw = True
                     elif event.key == pygame.K_F3:
                         self.rebuild_pathfinding_graph()
+                        self.redraw = True
+                    elif event.key == pygame.K_F4:
+                        self.show_quad_tree_rects = not self.show_quad_tree_rects
                         self.redraw = True
 
             if done:

@@ -68,6 +68,13 @@ class BoundingBox:
 
         return BoundingBox( x_lower, x_upper, y_lower, y_upper )
 
+    def union(self, other):
+        return BoundingBox( min( self.x_lower, other.x_lower ), max( self.x_upper, other.x_upper ),
+                            min( self.y_lower, other.y_lower ), max( self.y_upper, other.y_upper ) )
+
+    def expand( self, amount ):
+        return BoundingBox( self.x_lower - amount, self.x_upper + amount, self.y_lower - amount, self.y_upper + amount )
+
     def __contains__(self, point):
         return ( self.x_lower <= point.x and point.x <= self.x_upper
                  and self.y_lower <= point.y and point.y <= self.y_upper )
@@ -83,6 +90,7 @@ class BoundingBox:
 
     def __str__(self):
         return "BoundingBox( x_lower={}, x_upper={}, y_lower={}, y_upper={} )".format( self.x_lower, self.x_upper,
+                                                                                       self.y_lower, self.y_upper )
 
     def __repr__(self):
         return self.__str__( )
