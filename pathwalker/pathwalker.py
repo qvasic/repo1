@@ -14,6 +14,7 @@ DONE:
 - implement QuadTree
 - improve QuadTree random testing, fix a bug there
 - utilize QuadTree for pathwalker
+- if you go to the same spot you're right now - the program crashes
 
 TODO:
 - intersection of line segments which are on the same line
@@ -23,6 +24,7 @@ TODO:
 - refactor walls editing ui part, move appart walls editing, graph building, pathfinding and walking algos
 - keep an eye on some rare flaky test failures for QuadTree
 - REFACTOR THE SHT OUT OF ALL OF THAT
+- add ability to move walker from gamepad stick
 
 """
 
@@ -252,6 +254,7 @@ class PathWalker:
             for wall_segment in pairwise( wall ):
                 self.quad_tree.add( geometry.LineSegment( wall_segment[0], wall_segment[1] ) )
 
+        self.quad_tree_rects = []
         def get_quadrants_rects( quadrant ):
             if quadrant.subquadrants is not None:
                 for subquadrant in quadrant.subquadrants:
@@ -473,6 +476,8 @@ class PathWalker:
             elif self.shift_pressed:
                 pass
             else:
+                if self.walker_position == geometry.Point( *event.pos ):
+                    return
                 start_time = time.time( )
                 new_path = self.find_walk_path( geometry.Point( *event.pos ) )
                 end_time = time.time( )
@@ -557,8 +562,9 @@ ctrl-click: remove corner
 right-click: walk
 ctrl-right-click: teleport
 F2 - show/hide pathfinding graph
-F3 - rebuild pathfinding graph
-F4 - show/hide quad tree rects
+F3 - show/hide quad tree rects
+
+F12 - rebuild pathfinding graph
 """ )
 
         pygame.init()
@@ -593,10 +599,10 @@ F4 - show/hide quad tree rects
                         self.show_pathfinding_graph = not self.show_pathfinding_graph
                         self.redraw = True
                     elif event.key == pygame.K_F3:
-                        self.rebuild_pathfinding_graph()
-                        self.redraw = True
-                    elif event.key == pygame.K_F4:
                         self.show_quad_tree_rects = not self.show_quad_tree_rects
+                        self.redraw = True
+                    elif event.key == pygame.K_F12:
+                        self.rebuild_pathfinding_graph()
                         self.redraw = True
 
             if done:
