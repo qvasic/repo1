@@ -1,0 +1,15 @@
+cmake_minimum_required( VERSION 3.0 )
+project( sdl_test )
+
+if ( WIN32 )
+    message( "windows" )
+    set( SDL2_DIR "${CMAKE_SOURCE_DIR}/SDL2/SDL2-2.0.12" )
+    message( "sdl2 dir = ${SDL2_DIR}" )
+else ( )
+    message( "not windows " )
+endif ( )
+
+find_package( SDL2 REQUIRED )
+include_directories( ${SDL2_INCLUDE_DIRECTORIES} )
+add_executable( sdl_test main.cpp )
+target_link_libraries( sdl_test ${SDL2_LIBRARIES} )
