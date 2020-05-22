@@ -1,18 +1,11 @@
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <exception>
+#include <chrono>
+#include <thread>
 
 namespace sdl
 {
-
-void
-create_window( )
-{
-
-    std::cout << "SDL window created, now closing it." << std::endl;
-
-
-}
 
 class Library
 {
@@ -42,6 +35,16 @@ public:
         }
     }
 
+    SDL_Surface* get_surface( )
+    {
+        return SDL_GetWindowSurface( m_sdl_window );
+    }
+
+    void update_window_surface( )
+    {
+        SDL_UpdateWindowSurface( m_sdl_window);
+    }
+
     ~Window()
     {
         SDL_DestroyWindow( m_sdl_window );
@@ -58,8 +61,38 @@ SDL_main( int, char** )
 try
 {
     sdl::Library lib( SDL_INIT_VIDEO );
-    sdl::Window wnd( "asdfasdf", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+    sdl::Window wnd( "sdl-test2", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
                      800, 600, 0 );
+
+    auto* surface = wnd.get_surface( );
+    SDL_Rect rect{ 10, 10, 200, 100 };
+    SDL_FillRect( surface, &rect, SDL_MapRGB( surface->format, 128, 64, 0 ) );
+    SDL_FreeSurface( surface );
+    wnd.update_window_surface( );
+
+
+    SDL_Event event;
+    bool quit = false;
+
+    for ( ;; )
+    {
+
+        while ( SDL_PollEvent( &event ) )
+        {
+            if ( event.type == SDL_QUIT )
+            {
+                quit = true;
+            }
+        }
+
+        std::this_thread::sleep_for( std::chrono::milliseconds( 30 ) );
+
+        if ( quit )
+        {
+            break;
+        }
+    }
+
     return 0;
 }
 catch( const std::exception& e)
