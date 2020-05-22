@@ -1,15 +1,21 @@
+#cmake_minimum_required( VERSION 3.0 )
+#project( sdl_test )
+#find_package( SDL2 REQUIRED )
+#include_directories( ${SDL2_INCLUDE_DIRECTORIES} )
+#add_executable( sdl_test main.cpp )
+#target_link_libraries( sdl_test ${SDL2_LIBRARIES} )
+
 cmake_minimum_required( VERSION 3.0 )
-project( sdl_test )
+project( sdl-test )
+set( CMAKE_CXX_FLAGS "--std=c++11" )
 
-if ( WIN32 )
-    message( "windows" )
-    set( SDL2_DIR "${CMAKE_SOURCE_DIR}/SDL2/SDL2-2.0.12" )
-    message( "sdl2 dir = ${SDL2_DIR}" )
-else ( )
-    message( "not windows " )
-endif ( )
+set( SDL2_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}\\SDL2/SDL2-2.0.12\\x86_64-w64-mingw32" )
+include_directories( "${SDL2_DIRECTORY}\\include" )
+link_directories( "${SDL2_DIRECTORY}\\lib" )
+add_custom_target( SDL2DLL ALL
+    ${CMAKE_COMMAND} -E copy "${SDL2_DIRECTORY}\\bin\\SDL2.dll" "${CMAKE_CURRENT_BINARY_DIR}"
+    DEPENDS "${SDL2_DIRECTORY}\\bin\\SDL2.dll"
+    BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}\\SDL2.dll" )
 
-find_package( SDL2 REQUIRED )
-include_directories( ${SDL2_INCLUDE_DIRECTORIES} )
-add_executable( sdl_test main.cpp )
-target_link_libraries( sdl_test ${SDL2_LIBRARIES} )
+add_executable( ${PROJECT_NAME} main.cpp )
+target_link_libraries( ${PROJECT_NAME} mingw32 SDL2main SDL2 )
