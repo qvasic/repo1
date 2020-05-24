@@ -3,6 +3,10 @@
 #include <exception>
 #include <chrono>
 #include <thread>
+#include <vector>
+
+#include <cassert>
+#include <cmath>
 
 namespace sdl
 {
@@ -51,7 +55,7 @@ public:
         SDL_SetRenderDrawColor( m_sdl_renderer_ptr, r, g, b, a );
     }
 
-    void draw_line( int x1, int y1, int x2, int y2 )
+    void draw_line( int x1, int y1, int x2, int y2 ) const
     {
         SDL_RenderDrawLine( m_sdl_renderer_ptr, x1, y1, x2, y2 );
     }
@@ -76,16 +80,6 @@ public:
 
 
 
-    SDL_Surface* get_surface( )
-    {
-        return SDL_GetWindowSurface( m_sdl_window_ptr );
-    }
-
-    void update_window_surface( )
-    {
-        SDL_UpdateWindowSurface( m_sdl_window_ptr );
-    }
-
     Renderer create_accelerated_renderer( )
     {
         auto* sdl_renderer_ptr = SDL_CreateRenderer( m_sdl_window_ptr, -1, SDL_RENDERER_ACCELERATED );
@@ -107,6 +101,85 @@ private:
     SDL_Window* m_sdl_window_ptr;
 };
 
+}
+
+
+std::vector< std::pair< int, int > >
+calculate_ellipse_quarter_coordinates( double inter_center_distance, double radius )
+{
+    assert( radius > 0 && "Radius must be positive." );
+    assert( inter_center_distance < radius && "Radius is too small." );
+
+    std::vector< std::pair< int, int > > coordinates;
+
+    auto leftmost_x = ( radius - ( inter_center_distance ) ) / 2.0;
+
+    coordinates.emplace_back( - leftmost_x, 0 );
+
+    for ( int i = leftmost_x - 1; i >= 0; --i )
+    {
+        auto d1 = ( pow( i + inter_center_distance, 2 ) - pow( i, 2 ) - pow( radius, 2 ) ) / ( -2 * radius );
+        coordinates.emplace_back( -i, sqrt( pow( d1, 2 ) - pow( i, 2 ) ) );
+    }
+
+    coordinates.emplace_back( 0, ( pow( inter_center_distance, 2 ) - pow( radius, 2 ) ) / ( -2 * radius ) );
+
+    for ( int i = 1; i < inter_center_distance / 2; ++i )
+    {
+        auto d1 = ( pow( inter_center_distance - i, 2 ) - pow( i, 2 ) - pow( radius, 2 ) ) / ( -2 * radius );
+        coordinates.emplace_back( i, sqrt( pow( d1, 2 ) - pow( i, 2 ) ) );
+    }
+
+    return coordinates;
+}
+
+void draw_ellipse( const sdl::Renderer& renderer, int x1, int x2, int y, int radius )
+{
+    if ( x2 < x1 )
+    {
+        std::swap( x1, x2 );
+    }
+
+    assert( radius > 0 && "Radius must be positive." );
+    auto inter_center_distance = x2 - x1;
+    assert( inter_center_distance < radius && "Radius is too small." );
+
+    auto leftmost_x = ( radius - ( inter_center_distance ) ) / 2.0;
+
+    int prev_x = x1 - leftmost_x;
+    int prev_y = y;
+
+    for ( int i = leftmost_x - 1; i >= 0; --i )
+    {
+        auto d1 = ( pow( i + inter_center_distance, 2 ) - pow( i, 2 ) - pow( radius, 2 ) ) / ( -2 * radius );
+        auto curr_y = y - sqrt( pow( d1, 2 ) - pow( i, 2 ) );
+        auto curr_x = x1 - i;
+
+        renderer.draw_line( prev_x, prev_y, curr_x, curr_y );
+
+        prev_x = curr_x;
+        prev_y = curr_y;
+    }
+
+    auto curr_y = y - ( pow( inter_center_distance, 2 ) - pow( radius, 2 ) ) / ( -2 * radius );
+    renderer.draw_line( prev_x, prev_y, x1, curr_y );
+
+    prev_x = x1;
+    prev_y = curr_y;
+
+    for ( int i = 1; i < inter_center_distance / 2; ++i )
+    {
+        auto d1 = ( pow( inter_center_distance - i, 2 ) - pow( i, 2 ) - pow( radius, 2 ) ) / ( -2 * radius );
+        curr_y = y - sqrt( pow( d1, 2 ) - pow( i, 2 ) );
+        auto curr_x = x1 + i;
+
+
+        renderer.draw_line( prev_x, prev_y, curr_x, curr_y );
+
+        prev_x = curr_x;
+        prev_y = curr_y;
+
+    }
 }
 
 extern "C" int
@@ -154,6 +227,7 @@ try
             renderer.clear( );
             renderer.set_draw_color( 0, 0, 0, SDL_ALPHA_OPAQUE );
             renderer.draw_line( 0, 0, x, y );
+            draw_ellipse( renderer, 100, 500, 200, 420 );
             renderer.present( );
         }
         else
