@@ -6,7 +6,7 @@ int main( int, char** )
 	for( ;; )
 	{
 		int a, b;
-		std::cin >> a >> b
+		std::cin >> a >> b;
 		if ( !std::cin )
 		{
 			break;
