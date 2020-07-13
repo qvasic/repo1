@@ -7,7 +7,7 @@
 
 cmake_minimum_required( VERSION 3.0 )
 project( sdl-test )
-set( CMAKE_CXX_FLAGS "--std=c++11" )
+set( CMAKE_CXX_FLAGS "--std=c++17" )
 
 set( SDL2_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}\\SDL2/SDL2-2.0.12\\x86_64-w64-mingw32" )
 include_directories( "${SDL2_DIRECTORY}\\include" )
@@ -17,5 +17,5 @@ add_custom_target( SDL2DLL ALL
     DEPENDS "${SDL2_DIRECTORY}\\bin\\SDL2.dll"
     BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}\\SDL2.dll" )
 
-add_executable( ${PROJECT_NAME} main.cpp )
+add_executable( ${PROJECT_NAME} main.cpp SDLLibrary.h SDLLibrary.cpp GraphicalElement.h )
 target_link_libraries( ${PROJECT_NAME} mingw32 SDL2main SDL2 )

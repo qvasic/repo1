@@ -1,6 +1,9 @@
+#include "SDLLibrary.h"
+#include "GraphicalElement.h"
+
 #include <SDL2/SDL.h>
+
 #include <iostream>
-#include <exception>
 #include <chrono>
 #include <thread>
 #include <vector>
@@ -8,106 +11,10 @@
 #include <cassert>
 #include <cmath>
 
-namespace sdl
-{
-
-class Library
-{
-public:
-    Library( Uint32 flags )
-    {
-        if ( SDL_Init( flags ) != 0 )
-        {
-            throw std::runtime_error( std::string( "Could not initialize SDL video system: " ) + SDL_GetError( ) );
-        }
-    }
-    ~Library()
-    {
-        SDL_Quit( );
-    }
-};
-
-class Renderer
-{
-public:
-    explicit Renderer( SDL_Renderer* sdl_renderer_ptr )
-        : m_sdl_renderer_ptr( sdl_renderer_ptr )
-    {}
-
-    ~Renderer( )
-    {
-        SDL_DestroyRenderer( m_sdl_renderer_ptr );
-    }
-
-
-    void clear( )
-    {
-        SDL_RenderClear( m_sdl_renderer_ptr );
-    }
-
-    void present( )
-    {
-        SDL_RenderPresent( m_sdl_renderer_ptr );
-    }
-
-    void set_draw_color( Uint8 r, Uint8 g, Uint8 b, Uint8 a )
-    {
-        SDL_SetRenderDrawColor( m_sdl_renderer_ptr, r, g, b, a );
-    }
-
-    void draw_line( int x1, int y1, int x2, int y2 ) const
-    {
-        SDL_RenderDrawLine( m_sdl_renderer_ptr, x1, y1, x2, y2 );
-    }
-
-private:
-    SDL_Renderer* m_sdl_renderer_ptr;
-};
-
-class Window
-{
-public:
-    Window( const char *title, int x, int y, int w, int h, Uint32 flags )
-        : m_sdl_window_ptr( SDL_CreateWindow( title, x, y, w, h, flags ) )
-    {
-        if ( m_sdl_window_ptr == nullptr )
-        {
-            throw std::runtime_error( std::string( "Could not create SDL window: " ) + SDL_GetError( ) );
-        }
-    }
-
-
-
-
-
-    Renderer create_accelerated_renderer( )
-    {
-        auto* sdl_renderer_ptr = SDL_CreateRenderer( m_sdl_window_ptr, -1, SDL_RENDERER_ACCELERATED );
-        if ( sdl_renderer_ptr == nullptr )
-        {
-            throw std::runtime_error( std::string( "Could not create SDL renderer: " ) + SDL_GetError( ) );
-        }
-        return Renderer( sdl_renderer_ptr );
-    }
-
-
-
-    ~Window()
-    {
-        SDL_DestroyWindow( m_sdl_window_ptr );
-    }
-
-private:
-    SDL_Window* m_sdl_window_ptr;
-};
-
-}
-
-
 std::vector< std::pair< int, int > >
 calculate_ellipse_quarter_coordinates( double inter_center_distance, double radius )
 {
-    assert( radius > 0 && "Radius must be positive." );
+    assert( radius > 0 && "Radius must be larger than zero." );
     assert( inter_center_distance < radius && "Radius is too small." );
 
     std::vector< std::pair< int, int > > coordinates;
@@ -133,52 +40,91 @@ calculate_ellipse_quarter_coordinates( double inter_center_distance, double radi
     return coordinates;
 }
 
-void draw_ellipse( const sdl::Renderer& renderer, int x1, int x2, int y, int radius )
+template < typename F1, typename F2 >
+void
+draw_ellipse( const F1& draw_point, const F2& draw_line, int x1, int x2, int y, int radius )
 {
     if ( x2 < x1 )
     {
         std::swap( x1, x2 );
     }
 
-    assert( radius > 0 && "Radius must be positive." );
-    auto inter_center_distance = x2 - x1;
-    assert( inter_center_distance < radius && "Radius is too small." );
+    auto coordinates = calculate_ellipse_quarter_coordinates( x2 - x1, radius );
 
-    auto leftmost_x = ( radius - ( inter_center_distance ) ) / 2.0;
-
-    int prev_x = x1 - leftmost_x;
-    int prev_y = y;
-
-    for ( int i = leftmost_x - 1; i >= 0; --i )
+    if ( coordinates.size( ) > 1 )
     {
-        auto d1 = ( pow( i + inter_center_distance, 2 ) - pow( i, 2 ) - pow( radius, 2 ) ) / ( -2 * radius );
-        auto curr_y = y - sqrt( pow( d1, 2 ) - pow( i, 2 ) );
-        auto curr_x = x1 - i;
+        for ( size_t i = 1; i < coordinates.size( ); ++i )
+        {
+            if ( abs( coordinates[ i - 1 ].second - coordinates[ i ].second ) > 1 )
+            {
+                draw_line( x1 + coordinates[i - 1].first, y + coordinates[i - 1].second,
+                           x1 + coordinates[i].first, y + coordinates[i].second );
+                draw_line( x1 + coordinates[i - 1].first, y - coordinates[i - 1].second,
+                           x1 + coordinates[i].first, y - coordinates[i].second );
 
-        renderer.draw_line( prev_x, prev_y, curr_x, curr_y );
-
-        prev_x = curr_x;
-        prev_y = curr_y;
+                draw_line( x2 - coordinates[i - 1].first, y + coordinates[i - 1].second,
+                           x2 - coordinates[i].first, y + coordinates[i].second );
+                draw_line( x2 - coordinates[i - 1].first, y - coordinates[i - 1].second,
+                           x2 - coordinates[i].first, y - coordinates[i].second );
+            }
+            else
+            {
+                draw_point( x1 + coordinates[i].first, y + coordinates[i].second );
+                draw_point( x1 + coordinates[i].first, y - coordinates[i].second );
+                draw_point( x2 - coordinates[i].first, y + coordinates[i].second );
+                draw_point( x2 - coordinates[i].first, y - coordinates[i].second );
+            }
+        }
     }
 
-    auto curr_y = y - ( pow( inter_center_distance, 2 ) - pow( radius, 2 ) ) / ( -2 * radius );
-    renderer.draw_line( prev_x, prev_y, x1, curr_y );
-
-    prev_x = x1;
-    prev_y = curr_y;
-
-    for ( int i = 1; i < inter_center_distance / 2; ++i )
+    if ( !coordinates.empty( ) )
     {
-        auto d1 = ( pow( inter_center_distance - i, 2 ) - pow( i, 2 ) - pow( radius, 2 ) ) / ( -2 * radius );
-        curr_y = y - sqrt( pow( d1, 2 ) - pow( i, 2 ) );
-        auto curr_x = x1 + i;
+        draw_line( x1 + coordinates.back( ).first, y + coordinates.back( ).second,
+                   x2 - coordinates.back( ).first, y + coordinates.back( ).second );
+        draw_line( x1 + coordinates.back( ).first, y - coordinates.back( ).second,
+                   x2 - coordinates.back( ).first, y - coordinates.back( ).second );
+    }
+}
 
+void
+draw_ellipse( const sdl::Renderer& renderer, int x1, int y1, int x2, int y2 )
+{
+    if ( x1 > x2 )
+    {
+        std::swap( x1, x2 );
+    }
 
-        renderer.draw_line( prev_x, prev_y, curr_x, curr_y );
+    if ( y1 > y2 )
+    {
+        std::swap( y1, y2 );
+    }
 
-        prev_x = curr_x;
-        prev_y = curr_y;
+    bool inverted_coordinates = false;
 
+    if ( y2 - y1 > x2 - y1 )
+    {
+        std::swap( x1, y1 );
+        std::swap( x2, y2 );
+        inverted_coordinates = true;
+    }
+
+    auto radius = x2 - x1;
+    auto y_max = ( y2 - y1 ) / 2;
+    auto x_half = sqrt( pow( radius / 2, 2 ) - pow( y_max, 2 ) );
+    auto x_middle = ( x1 + x2 ) / 2;
+    auto y_middle = ( y1 + y2 ) / 2;
+
+    if ( inverted_coordinates )
+    {
+        draw_ellipse( [ &renderer ]( auto x, auto y ){ renderer.draw_point( y, x ); },
+                      [ &renderer ]( auto x1, auto y1, auto x2, auto y2 ){ renderer.draw_line( y1, x1, y2, x2 ); },
+                      x_middle - x_half, x_middle + x_half, y_middle, radius );
+    }
+    else
+    {
+        draw_ellipse( [ &renderer ]( auto x, auto y ){ renderer.draw_point( x, y ); },
+                      [ &renderer ]( auto x1, auto y1, auto x2, auto y2 ){ renderer.draw_line( x1, y1, x2, y2 ); },
+                      x_middle - x_half, x_middle + x_half, y_middle, radius );
     }
 }
 
@@ -227,7 +173,10 @@ try
             renderer.clear( );
             renderer.set_draw_color( 0, 0, 0, SDL_ALPHA_OPAQUE );
             renderer.draw_line( 0, 0, x, y );
-            draw_ellipse( renderer, 100, 500, 200, 420 );
+            if ( x > 1 && y > 1 )
+            {
+                draw_ellipse( renderer, 0, 0, x, y );
+            }
             renderer.present( );
         }
         else
