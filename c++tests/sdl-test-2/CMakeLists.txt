@@ -16,7 +16,6 @@ else( )
 	# Not widnows, most likely Linux/Posix
 	find_package( SDL2 REQUIRED )
 	include_directories( ${SDL2_INCLUDE_DIRECTORIES} )
-        set( SDL2_LIBRARIES ${SDL2_LIBRARIES} SDL2main )
 endif( )
 
 add_executable( ${PROJECT_NAME} main.cpp SDLLibrary.h SDLLibrary.cpp GraphicalElement.h )

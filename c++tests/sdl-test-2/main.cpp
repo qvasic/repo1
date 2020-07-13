@@ -128,8 +128,7 @@ draw_ellipse( const sdl::Renderer& renderer, int x1, int y1, int x2, int y2 )
     }
 }
 
-extern "C" int
-SDL_main( int, char** )
+int main( int, char** )
 try
 {
     sdl::Library library( SDL_INIT_VIDEO );
