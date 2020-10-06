@@ -1,0 +1,18 @@
+<html>
+    <head><title>Search result</title></head>
+    <body>
+        <h1>Input data</h1>
+        <p>URL args: {{ url_args }}</p>
+        <p>Form: {{ form }}</p>
+        <p>Files: {{ files }}</p>
+        <p>test area normal <b>bold</b> <strong>strong</strong></p>
+
+        <h1>Result</h1>
+        {% for file in search_result %}
+        <h2>File {{ file }}</h2>
+        {% for line in search_result[ file ] %}
+        <p>{% for elem in line %}{% if elem.bold %}<strong>{{ elem.text }}</strong>{% else %}{{ elem.text }}{% endif %}{% endfor %}</p>
+        {% endfor %}
+        {% endfor %}
+    </body>
+</html>
