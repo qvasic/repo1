@@ -1,0 +1,13 @@
+CREATE TABLE users ( username TEXT PRIMARY KEY NOT NULL,
+                     password TEXT NOT NULL );
+
+CREATE TABLE sessions ( session_id INTEGER PRIMARY KEY NOT NULL,
+                        username TEXT REFERENCES users(username) NOT NULL, 
+                        ip_address TEXT NOT NULL,
+                        login_time INTEGER NOT NULL,
+                        expiration_time INTEGER NOT NULL );
+
+CREATE TABLE timesheets ( timesheet_id INTEGER PRIMARY KEY NOT NULL,
+                          username TEXT REFERENCES users(username) NOT NULL,
+                          time_start INTEGER NOT NULL,
+                          time_stop INTEGER );

@@ -1,0 +1,23 @@
+<html>
+<head>
+    <title>login</title>
+</head>
+<body>
+    <h1>login</h1>
+    {% if error_message %}
+        <p>{{ error_message }}</p>
+    {% endif %}
+    <p>
+        <form action="login" method="post" enctype="multipart/form-data">
+            <label for="username">username: </label>
+            <input type="text" id="username" name="username" />
+
+            <label for="password">password: </label>
+            <input type="password" id="password" name="password" />
+
+            <input type="submit" value="login" />
+        </form>
+    </p>
+
+</body>
+</html>

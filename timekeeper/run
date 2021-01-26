@@ -1,0 +1,1 @@
+FLASK_APP=timekeeper.py python3 -m flask run

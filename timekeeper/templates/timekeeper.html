@@ -1,0 +1,27 @@
+<html>
+<head>
+    <title>timekeeping</title>
+</head>
+<body>
+    <h1>timesheets for {{ username }}</h1>
+    <table>
+        <thead>
+            <tr>
+                <th scope="col">in</th>
+                <th scope="col">out</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in timesheets %}
+            <tr>
+                <td>{{ t["in"] }}</td>
+                <td>{{ t["out"] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <form action="timekeeper?session_id={{ session_id }}" method="post" enctype="multipart/form-data">
+        <input type="submit" value="start/stop" />
+    </form>
+</body>
+</html>
