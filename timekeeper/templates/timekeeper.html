@@ -9,6 +9,7 @@
             <tr>
                 <th scope="col">in</th>
                 <th scope="col">out</th>
+                <th scope="col">time</th>
             </tr>
         </thead>
         <tbody>
@@ -16,10 +17,12 @@
             <tr>
                 <td>{{ t["in"] }}</td>
                 <td>{{ t["out"] }}</td>
+                <td>{{ t["total"] }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    <p>today total: {{ today_total }}</p>
     <form action="timekeeper?session_id={{ session_id }}" method="post" enctype="multipart/form-data">
         <input type="submit" value="start/stop" />
     </form>

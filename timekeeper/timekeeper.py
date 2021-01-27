@@ -4,6 +4,11 @@ app = flask.Flask( __name__ )
 import sqlite3
 import time
 
+def beginning_of_the_day( ):
+    l = list( time.localtime( time.time( ) ) )
+    l[3:6] = [0,0,0]
+    return time.mktime( time.struct_time( l ) )
+
 class TimeKeeperDB:
     def __init__( self, db_filename ):
         self.connection = sqlite3.connect( db_filename )
@@ -39,7 +44,8 @@ class TimeKeeperDB:
 
     def get_timesheets( self, username ):
         cursor = self.connection.cursor( )
-        cursor.execute( "SELECT time_start, time_stop FROM timesheets WHERE username = ?", ( username, ) )
+        day_beginning = beginning_of_the_day( )
+        cursor.execute( "SELECT time_start, time_stop FROM timesheets WHERE username = ? AND ( time_stop IS NULL OR time_stop > ? )", ( username, day_beginning ) )
         return [ { "in" : row[0], "out" : row[1] } for row in cursor ]
 
     def start_stop_timesheet( self, username ):
@@ -55,17 +61,37 @@ class TimeKeeperDB:
 
         self.connection.commit( )
 
-def epoch_into_local_time_of_day( seconds ):
-    t = time.localtime( seconds )
-    return "{}:{}".format( t.tm_hour, t.tm_min )
+def format_time( hours, minutes ):
+    return "{}:{}".format( hours, minutes )
 
-def convert_timesheets_into_time_of_day( timesheets ):
+def epoch_into_local_time_of_day( seconds_since_epoch ):
+    t = time.localtime( seconds_since_epoch )
+    return format_time( t.tm_hour, t.tm_min )
+
+def seconds_into_hours_and_minutes( seconds ):
+    seconds_in_hour = 3600
+    seconds_in_minute = 60
+    hours = int( seconds // seconds_in_hour )
+    minutes = int( ( seconds - hours * seconds_in_hour ) // seconds_in_minute )
+    return format_time( hours, minutes )
+
+def convert_timesheets( timesheets ):
+    day_beginning = beginning_of_the_day( )
+    now = int( time.time( ) )
+
+    today_total = 0
+
     for t in timesheets:
+        interval_in = max( ( t["in"], day_beginning ) )
+        interval_out = t["out"] if t["out"] else now
+        interval_total = interval_out - interval_in
+        today_total += interval_total
+
         t["in"] = epoch_into_local_time_of_day( t["in"] )
-        if t["out"]:
-            t["out"] = epoch_into_local_time_of_day( t["out"] )
-        else:
-            t["out"] = ""
+        t["out"] = epoch_into_local_time_of_day( t["out"] ) if t["out"] else ""
+        t["total"] = seconds_into_hours_and_minutes( interval_total )
+
+    return seconds_into_hours_and_minutes( today_total )
 
 timekeeper_db = TimeKeeperDB( "timekeeper.db" )
 
@@ -101,6 +127,6 @@ def timekeeper_page( ):
         timekeeper_db.start_stop_timesheet( session["username"] )
 
     timesheets = timekeeper_db.get_timesheets( session["username"] )
-    convert_timesheets_into_time_of_day( timesheets )
+    today_total = convert_timesheets( timesheets )
 
-    return flask.render_template( "timekeeper.html", timesheets = timesheets, session_id = session_id, username = session[ "username" ] )
+    return flask.render_template( "timekeeper.html", timesheets = timesheets, today_total = today_total, session_id = session_id, username = session[ "username" ] )
