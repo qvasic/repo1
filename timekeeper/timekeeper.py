@@ -25,8 +25,9 @@ class TimeKeeperDB:
             return result_list[ 0 ][ 0 ] == password
 
     def create_new_session( self, username ):
+        SESSION_EXPIRATION_SECONDS = 60 * 180
         now = int( time.time( ) )
-        expiration = now + 60 * 10
+        expiration = now + SESSION_EXPIRATION_SECONDS
 
         cursor = self.connection.cursor( )
         cursor.execute( "INSERT INTO sessions ( username, ip_address, login_time, expiration_time ) VALUES ( ? , ? , ? , ? )", ( username, "ip_address", now, expiration ) )
@@ -34,13 +35,14 @@ class TimeKeeperDB:
         return cursor.lastrowid
 
     def get_session( self, session_id ):
+        """Returns session info for given session id. Session object contains username, ip_address, login and expiration times."""
         cursor = self.connection.cursor( )
-        cursor.execute( "SELECT username, ip_address, login_time, expiration_time FROM sessions WHERE session_id = ?", ( session_id, ) )
+        cursor.execute( "SELECT username, ip_address, login_time, expiration_time, session_id FROM sessions WHERE session_id = ?", ( session_id, ) )
         result_list = cursor.fetchall( )
         if ( len( result_list ) != 1 ):
             return None
 
-        return { "username" : result_list[0][0], "ip_address" : result_list[0][1], "login_time" : result_list[0][2], "expiration_time" : result_list[0][3] }
+        return { "username" : result_list[0][0], "ip_address" : result_list[0][1], "login_time" : result_list[0][2], "expiration_time" : result_list[0][3], "session_id" : result_list[0][4] }
 
     def get_timesheets( self, username ):
         cursor = self.connection.cursor( )
@@ -93,6 +95,23 @@ def convert_timesheets( timesheets ):
 
     return seconds_into_hours_and_minutes( today_total )
 
+def check_session( f ):
+    def decorator( ):
+        session = None
+        if "session_id" in flask.request.args:
+            session_id = flask.request.args["session_id"]
+            session = timekeeper_db.get_session( session_id )
+        
+        if session is None:
+            return flask.render_template( "redirect.html", target="login", message="Session error. Click here to re-login." )
+
+        if session["expiration_time"] < time.time( ):
+            return flask.render_template( "redirect.html", target="login", message="Session expired. Click here to re-login." )
+
+        return f( session )
+
+    return decorator
+
 timekeeper_db = TimeKeeperDB( "timekeeper.db" )
 
 @app.route( "/login", methods=['GET'] )
@@ -106,27 +125,22 @@ def do_login( ):
 
     if timekeeper_db.login( username, password ):
         session_id = timekeeper_db.create_new_session( username )
-        return flask.render_template( "redirect.html", target=( "timekeeper?session_id=" + str( session_id ) ), message="Login sucessfull. Click here to continue." )
+        return flask.render_template( "redirect.html", target=( "time?session_id=" + str( session_id ) ), message="Login sucessfull. Click here to continue." )
     else:
         return flask.render_template( "login.html", error_message="login failed" )    
 
-@app.route( "/timekeeper", methods=['GET', 'POST'] )
-def timekeeper_page( ):
-    session = None
-    if "session_id" in flask.request.args:
-        session_id = flask.request.args["session_id"]
-        session = timekeeper_db.get_session( session_id )
-    
-    if session is None:
-        return flask.render_template( "redirect.html", target="login", message="Session error. Click here to re-login." )
-
-    if session["expiration_time"] < time.time( ):
-        return flask.render_template( "redirect.html", target="login", message="Session expired. Click here to re-login." )
-
+@app.route( "/time", methods=['GET', 'POST'] )
+@check_session
+def time_page( session ):
     if flask.request.method == 'POST':
         timekeeper_db.start_stop_timesheet( session["username"] )
 
     timesheets = timekeeper_db.get_timesheets( session["username"] )
     today_total = convert_timesheets( timesheets )
 
-    return flask.render_template( "timekeeper.html", timesheets = timesheets, today_total = today_total, session_id = session_id, username = session[ "username" ] )
+    return flask.render_template( "time.html", timesheets = timesheets, today_total = today_total, session_id = session["session_id"], username = session[ "username" ] )
+
+@app.route( "/edit", methods=[ "GET", "POST" ] )
+@check_session
+def edit_page( session ):
+    return "hell"

@@ -23,7 +23,7 @@
         </tbody>
     </table>
     <p>today total: {{ today_total }}</p>
-    <form action="timekeeper?session_id={{ session_id }}" method="post" enctype="multipart/form-data">
+    <form action="time?session_id={{ session_id }}" method="post" enctype="multipart/form-data">
         <input type="submit" value="start/stop" />
     </form>
 </body>
