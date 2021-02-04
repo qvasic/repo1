@@ -1,81 +1,9 @@
-import flask
-app = flask.Flask( __name__ )
-
-import sqlite3
 import time
+import flask
+from timekeeper_db import get_timekeeper_db
+from utils import beginning_of_the_day, format_time, epoch_into_local_time_of_day, seconds_into_hours_and_minutes
 
-def beginning_of_the_day( ):
-    l = list( time.localtime( time.time( ) ) )
-    l[3:6] = [0,0,0]
-    return time.mktime( time.struct_time( l ) )
-
-class TimeKeeperDB:
-    def __init__( self, db_filename ):
-        self.connection = sqlite3.connect( db_filename )
-
-    def login( self, username, password ):
-        cursor = self.connection.cursor( )
-        cursor.execute( "SELECT password FROM users WHERE username = ?", ( username, ) )
-        result_list = cursor.fetchall( )
-        if ( len( result_list ) != 1 ):
-            cursor.execute( "INSERT INTO users ( username, password ) VALUES ( ? , ? )", ( username, password ) )
-            self.connection.commit( )
-            return True
-        else:
-            return result_list[ 0 ][ 0 ] == password
-
-    def create_new_session( self, username ):
-        SESSION_EXPIRATION_SECONDS = 60 * 180
-        now = int( time.time( ) )
-        expiration = now + SESSION_EXPIRATION_SECONDS
-
-        cursor = self.connection.cursor( )
-        cursor.execute( "INSERT INTO sessions ( username, ip_address, login_time, expiration_time ) VALUES ( ? , ? , ? , ? )", ( username, "ip_address", now, expiration ) )
-        self.connection.commit( )
-        return cursor.lastrowid
-
-    def get_session( self, session_id ):
-        """Returns session info for given session id. Session object contains username, ip_address, login and expiration times."""
-        cursor = self.connection.cursor( )
-        cursor.execute( "SELECT username, ip_address, login_time, expiration_time, session_id FROM sessions WHERE session_id = ?", ( session_id, ) )
-        result_list = cursor.fetchall( )
-        if ( len( result_list ) != 1 ):
-            return None
-
-        return { "username" : result_list[0][0], "ip_address" : result_list[0][1], "login_time" : result_list[0][2], "expiration_time" : result_list[0][3], "session_id" : result_list[0][4] }
-
-    def get_timesheets( self, username ):
-        cursor = self.connection.cursor( )
-        day_beginning = beginning_of_the_day( )
-        cursor.execute( "SELECT time_start, time_stop FROM timesheets WHERE username = ? AND ( time_stop IS NULL OR time_stop > ? )", ( username, day_beginning ) )
-        return [ { "in" : row[0], "out" : row[1] } for row in cursor ]
-
-    def start_stop_timesheet( self, username ):
-        cursor = self.connection.cursor( )
-        cursor.execute( "SELECT timesheet_id, time_stop FROM timesheets WHERE username = ? and time_start = ( SELECT MAX( time_start ) FROM timesheets WHERE username = ? ) LIMIT 1", ( username, username ) )
-        last_timesheet_list = cursor.fetchall( )
-        assert( len( last_timesheet_list ) <= 1 );
-        now = int( time.time( ) )
-        if len( last_timesheet_list ) == 1 and last_timesheet_list[0][1] is None:
-            cursor.execute( "UPDATE timesheets SET time_stop = ? WHERE timesheet_id = ?", ( now, last_timesheet_list[0][0] ) )
-        else:
-            cursor.execute( "INSERT INTO timesheets ( username, time_start ) VALUES ( ? , ? )", ( username, now ) )
-
-        self.connection.commit( )
-
-def format_time( hours, minutes ):
-    return "{}:{}".format( hours, minutes )
-
-def epoch_into_local_time_of_day( seconds_since_epoch ):
-    t = time.localtime( seconds_since_epoch )
-    return format_time( t.tm_hour, t.tm_min )
-
-def seconds_into_hours_and_minutes( seconds ):
-    seconds_in_hour = 3600
-    seconds_in_minute = 60
-    hours = int( seconds // seconds_in_hour )
-    minutes = int( ( seconds - hours * seconds_in_hour ) // seconds_in_minute )
-    return format_time( hours, minutes )
+app = flask.Flask( __name__ )
 
 def convert_timesheets( timesheets ):
     day_beginning = beginning_of_the_day( )
@@ -97,6 +25,7 @@ def convert_timesheets( timesheets ):
 
 def check_session( f ):
     def decorator( ):
+        timekeeper_db = get_timekeeper_db( )
         session = None
         if "session_id" in flask.request.args:
             session_id = flask.request.args["session_id"]
@@ -112,14 +41,14 @@ def check_session( f ):
 
     return decorator
 
-timekeeper_db = TimeKeeperDB( "timekeeper.db" )
-
 @app.route( "/login", methods=['GET'] )
 def login_page( ):
     return flask.render_template( "login.html" )
 
 @app.route( "/login", methods=['POST'] )
 def do_login( ):
+    timekeeper_db = get_timekeeper_db( )
+
     username = flask.request.form["username"]
     password = flask.request.form["password"]
 
@@ -132,6 +61,8 @@ def do_login( ):
 @app.route( "/time", methods=['GET', 'POST'] )
 @check_session
 def time_page( session ):
+    timekeeper_db = get_timekeeper_db( )
+
     if flask.request.method == 'POST':
         timekeeper_db.start_stop_timesheet( session["username"] )
 
@@ -140,7 +71,7 @@ def time_page( session ):
 
     return flask.render_template( "time.html", timesheets = timesheets, today_total = today_total, session_id = session["session_id"], username = session[ "username" ] )
 
-@app.route( "/edit", methods=[ "GET", "POST" ] )
-@check_session
-def edit_page( session ):
-    return "hell"
+#@app.route( "/edit", methods=[ "GET", "POST" ] )
+#@check_session
+#def edit_page( session ):
+#    return "hell"
