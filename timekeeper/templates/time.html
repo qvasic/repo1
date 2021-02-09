@@ -15,8 +15,8 @@
         <tbody>
             {% for t in timesheets %}
             <tr>
-                <td>{{ t["in"] }}</td>
-                <td>{{ t["out"] }}</td>
+                <td>{{ t["time_start"] }}</td>
+                <td>{{ t["time_stop"] }}</td>
                 <td>{{ t["total"] }}</td>
             </tr>
             {% endfor %}
@@ -26,5 +26,6 @@
     <form action="time?session_id={{ session_id }}" method="post" enctype="multipart/form-data">
         <input type="submit" value="start/stop" />
     </form>
+    <p><a href="edit?session_id={{ session_id }}">edit</a></p>
 </body>
 </html>

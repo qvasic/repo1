@@ -46,8 +46,8 @@ class TimeKeeperDB:
     def get_timesheets( self, username ):
         cursor = self.connection.cursor( )
         day_beginning = beginning_of_the_day( )
-        cursor.execute( "SELECT time_start, time_stop FROM timesheets WHERE username = ? AND ( time_stop IS NULL OR time_stop > ? )", ( username, day_beginning ) )
-        return [ { "in" : row[0], "out" : row[1] } for row in cursor ]
+        cursor.execute( "SELECT time_start, time_stop, timesheet_id FROM timesheets WHERE username = ? AND ( time_stop IS NULL OR time_stop > ? )", ( username, day_beginning ) )
+        return fetchall_as_dicts( cursor )
 
     def start_stop_timesheet( self, username ):
         cursor = self.connection.cursor( )

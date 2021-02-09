@@ -1,0 +1,30 @@
+<html>
+<head>
+    <title>timekeeping</title>
+</head>
+<body>
+    <h1>edit timesheets for {{ username }}</h1>
+    {% if message %}
+    <p>{{ message }}</p>
+    {% endif %}
+    <form action="edit?session_id={{ session_id }}" method="post" enctype="multipart/form-data">
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col">in</th>
+                    <th scope="col">out</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in timesheets %}
+                <tr>
+                    <td><input type="text" id="start-{{ t['timesheet_id'] }}" name="start-{{ t['timesheet_id'] }}" value="{{ t['time_start'] }}" /></td>
+                    <td><input type="text" id="stop-{{ t['timesheet_id'] }}" name="stop-{{ t['timesheet_id'] }}" value="{{ t['time_stop'] }}" /></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <input type="submit" value="save" />
+    </form>
+</body>
+</html>

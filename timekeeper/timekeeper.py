@@ -12,13 +12,13 @@ def convert_timesheets( timesheets ):
     today_total = 0
 
     for t in timesheets:
-        interval_in = max( ( t["in"], day_beginning ) )
-        interval_out = t["out"] if t["out"] else now
+        interval_in = max( ( t["time_start"], day_beginning ) )
+        interval_out = t["time_stop"] if t["time_stop"] else now
         interval_total = interval_out - interval_in
         today_total += interval_total
 
-        t["in"] = epoch_into_local_time_of_day( t["in"] )
-        t["out"] = epoch_into_local_time_of_day( t["out"] ) if t["out"] else ""
+        t["time_start"] = epoch_into_local_time_of_day( t["time_start"] )
+        t["time_stop"] = epoch_into_local_time_of_day( t["time_stop"] ) if t["time_stop"] else ""
         t["total"] = seconds_into_hours_and_minutes( interval_total )
 
     return seconds_into_hours_and_minutes( today_total )
@@ -38,6 +38,8 @@ def check_session( f ):
             return flask.render_template( "redirect.html", target="login", message="Session expired. Click here to re-login." )
 
         return f( session )
+
+    decorator.__name__ = "check_session_for_" + f.__name__
 
     return decorator
 
@@ -71,7 +73,28 @@ def time_page( session ):
 
     return flask.render_template( "time.html", timesheets = timesheets, today_total = today_total, session_id = session["session_id"], username = session[ "username" ] )
 
-#@app.route( "/edit", methods=[ "GET", "POST" ] )
-#@check_session
-#def edit_page( session ):
-#    return "hell"
+@app.route( "/edit", methods=[ "GET", "POST" ] )
+@check_session
+def edit_page( session ):
+    timekeeper_db = get_timekeeper_db( )
+    timesheets = timekeeper_db.get_timesheets( session["username"] )
+    today_total = convert_timesheets( timesheets )
+
+    message = None
+
+    if flask.request.method == 'POST':
+        edited_data = dict( )
+        for k in flask.request.form:
+            timesheet_id = int( k[ k.find( "-" ) + 1 : ] )
+            if timesheet_id not in edited_data:
+                edited_data[ timesheet_id ] = dict( )
+                
+            if k.startswith( "start" ):
+                edited_data[ timesheet_id ][ "time_start" ] = flask.request.form[ k ]
+            elif k.startswith( "stop" ):
+                edited_data[ timesheet_id ][ "time_stop" ] = flask.request.form[ k ]
+            else:
+                assert( false )
+        message = "not implemented yet\n" + str( edited_data )
+
+    return flask.render_template( "edit.html", timesheets = timesheets, session_id = session["session_id"], username = session[ "username" ], message = message )
