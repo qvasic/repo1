@@ -15,9 +15,9 @@
         <tbody>
             {% for t in timesheets %}
             <tr>
-                <td>{{ t["time_start"] }}</td>
-                <td>{{ t["time_stop"] }}</td>
-                <td>{{ t["total"] }}</td>
+                <td>{{ t.time_start }}</td>
+                <td>{{ t.time_stop }}</td>
+                <td>{{ t.total }}</td>
             </tr>
             {% endfor %}
         </tbody>

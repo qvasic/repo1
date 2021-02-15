@@ -18,8 +18,8 @@
             <tbody>
                 {% for t in timesheets %}
                 <tr>
-                    <td><input type="text" id="start-{{ t['timesheet_id'] }}" name="start-{{ t['timesheet_id'] }}" value="{{ t['time_start'] }}" /></td>
-                    <td><input type="text" id="stop-{{ t['timesheet_id'] }}" name="stop-{{ t['timesheet_id'] }}" value="{{ t['time_stop'] }}" /></td>
+                    <td><input type="text" id="start-{{ t['timesheet_id'] }}" name="start-{{ t['timesheet_id'] }}" value="{{ t.time_start }}" /></td>
+                    <td><input type="text" id="stop-{{ t['timesheet_id'] }}" name="stop-{{ t['timesheet_id'] }}" value="{{ t.time_stop }}" /></td>
                 </tr>
                 {% endfor %}
             </tbody>

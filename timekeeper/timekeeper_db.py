@@ -1,6 +1,14 @@
 import sqlite3
 import time
-from utils import beginning_of_the_day
+from utils import zero_seconds_of_today
+
+class DictAsObject:
+    """Transforms a dict into an object with corresponding attributes:
+    DictAsObject( { "one" : 1 } ) => obj with one attribute: o.one."""
+
+    def __init__( self, d ):
+        for k in d:
+            self.__dict__[ k ] = d[ k ]
 
 def fetchall_as_dicts( cursor ):
     """Fetches all from an sqlite3 cursor and converts each element into dict with column name as dict keys."""
@@ -12,6 +20,8 @@ class TimeKeeperDB:
         self.connection = sqlite3.connect( db_filename )
 
     def login( self, username, password ):
+        """Logs in existing user or creates new user. Returns true or false, depending on the success of the operation."""
+
         cursor = self.connection.cursor( )
         cursor.execute( "SELECT password FROM users WHERE username = ?", ( username, ) )
         result_list = fetchall_as_dicts( cursor )
@@ -23,6 +33,8 @@ class TimeKeeperDB:
             return result_list[ 0 ][ "password" ] == password
 
     def create_new_session( self, username ):
+        """Creates new session for a given user. Return new session's id."""
+
         SESSION_EXPIRATION_SECONDS = 60 * 180
         now = int( time.time( ) )
         expiration = now + SESSION_EXPIRATION_SECONDS
@@ -41,15 +53,26 @@ class TimeKeeperDB:
         if ( len( session_select_result_list ) != 1 ):
             return None
 
-        return session_select_result_list[ 0 ]
+        return DictAsObject( session_select_result_list[ 0 ] )
 
-    def get_timesheets( self, username ):
+    def get_timesheets_for_today( self, username ):
+        """Return list of timesheets for today."""
+
         cursor = self.connection.cursor( )
-        day_beginning = beginning_of_the_day( )
+        day_beginning = zero_seconds_of_today( )
         cursor.execute( "SELECT time_start, time_stop, timesheet_id FROM timesheets WHERE username = ? AND ( time_stop IS NULL OR time_stop > ? )", ( username, day_beginning ) )
-        return fetchall_as_dicts( cursor )
+        return [ DictAsObject( item ) for item in fetchall_as_dicts( cursor ) ]
+
+    def update_timesheet( self, timesheet_id, time_start, time_stop ):
+        """Updates a timesheet with given id."""
+
+        cursor = self.connection.cursor( )
+        cursor.execute( "UPDATE timesheets time_start = ? , time_end = ? WHERE timewheet_id = ?", ( time_start, time_end, timesheet_id ) )
+        self.connection.commit( )
 
     def start_stop_timesheet( self, username ):
+        """Closes existing timesheet or opens new one."""
+
         cursor = self.connection.cursor( )
         cursor.execute( "SELECT timesheet_id, time_stop FROM timesheets WHERE username = ? and time_start = ( SELECT MAX( time_start ) FROM timesheets WHERE username = ? ) LIMIT 1", ( username, username ) )
         last_timesheet_list = fetchall_as_dicts( cursor )

@@ -1,9 +1,18 @@
 import time
 
-def beginning_of_the_day( ):
-    l = list( time.localtime( time.time( ) ) )
-    l[3:6] = [0,0,0]
+def reset_hours_minutes_seconds( original_time, hours, minutes, seconds = None ):
+    """
+    Given time (in seconds from epoch), modifies it so its hours/minutes are reset.
+    """
+    l = list( time.localtime( original_time ) )
+    if seconds is not None:
+        l[3:6] = [hours,minutes,seconds]
+    else:
+        l[3:5] = [hours,minutes]
     return time.mktime( time.struct_time( l ) )
+
+def zero_seconds_of_today( ):
+    return reset_hours_minutes_seconds( time.time( ), 0, 0 )
 
 def format_time( hours, minutes ):
     return "{}:{}".format( hours, minutes )
