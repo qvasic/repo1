@@ -82,7 +82,7 @@ class TimeKeeperDB:
         """Updates a timesheet with given id."""
 
         cursor = self.connection.cursor( )
-        cursor.execute( "UPDATE timesheets time_start = ? , time_end = ? WHERE timewheet_id = ?", ( time_start, time_end, timesheet_id ) )
+        cursor.execute( "UPDATE timesheets SET time_start = ? , time_stop = ? WHERE timesheet_id = ?", ( time_start, time_stop, timesheet_id ) )
         self.connection.commit( )
 
     def start_stop_timesheet( self, username ):

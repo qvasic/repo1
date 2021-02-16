@@ -58,7 +58,10 @@ def parse_time_groups( time_str ):
     time_groups = time_str.split( ":" )
     if len( time_groups ) != 2:
         raise ValueError( "Wrong number of time groups, must be two: hours and minutes." )
-    return tuple( int( group ) for group in time_groups )    
+    result_tuple = tuple( int( group ) for group in time_groups )
+    if result_tuple[ 0 ] < 0 or result_tuple[ 0 ] > 23 or result_tuple[ 1 ] < 0 or result_tuple[ 1 ] > 59:
+        raise ValueError( "Time group values are out of range." )
+    return result_tuple
 
 def reset_time_of_day_from_time_str( seconds_from_epoch, time_str ):
     time_groups = parse_time_groups( time_str )
@@ -150,10 +153,15 @@ def edit_page( session ):
         try:
             timesheets = process_edit_form( flask.request.form )
             processed_timesheets = verify_and_convert_edit_form( timesheets )
-            message = "not implemented yet\nform: " + str( timesheets ) + "\nprocessed: " + str( processed_timesheets )
+            for timesheet in processed_timesheets:
+                timekeeper_db.update_timesheet( timesheet.timesheet_id, timesheet.time_start, timesheet.time_stop )
+            timesheets = timekeeper_db.get_timesheets_for_today( session.username )
+            today_total = convert_timesheets( timesheets )
+                
+            message = "Saved successfully."
 
         except RuntimeError as e:
-            message = "edit form processing error: " + str( e )
+            message = "Edit form processing error: " + str( e )
         
 
     return flask.render_template( "edit.html", timesheets = timesheets, session_id = session.session_id, username = session.username, message = message )
