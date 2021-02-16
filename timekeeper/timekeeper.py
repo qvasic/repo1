@@ -1,7 +1,7 @@
 import time
 import flask
-from timekeeper_db import get_timekeeper_db
-from utils import zero_seconds_of_today, format_time, epoch_into_local_time_of_day, seconds_into_hours_and_minutes
+from timekeeper_db import get_timekeeper_db, DictAsObject
+from utils import zero_seconds_of_today, format_time, epoch_into_local_time_of_day, seconds_into_hours_and_minutes, reset_time_of_day
 
 app = flask.Flask( __name__ )
 
@@ -45,8 +45,45 @@ def process_edit_form( form ):
         else:
             raise RuntimeError( "Field name error (wrong prefix): " + k )
 
-    return [ { "timesheet_id" : timesheet_id, "time_start" : edited_data[ timesheet_id ][ "time_start" ], "time_stop" : edited_data[ timesheet_id ][ "time_stop" ] } 
+    return [ DictAsObject( { "timesheet_id" : timesheet_id, 
+                             "time_start" : edited_data[ timesheet_id ][ "time_start" ], 
+                             "time_stop" : edited_data[ timesheet_id ][ "time_stop" ] } ) 
              for timesheet_id in edited_data ]
+
+def parse_time_groups( time_str ):
+    """Parses time string, with hours and minutes, like 18:45.
+    Also checks that value are in proper range.
+    If something is wrong - raises ValueError exception.
+    If everything is right - return tuple of two integers: hours and minutes."""
+    time_groups = time_str.split( ":" )
+    if len( time_groups ) != 2:
+        raise ValueError( "Wrong number of time groups, must be two: hours and minutes." )
+    return tuple( int( group ) for group in time_groups )    
+
+def reset_time_of_day_from_time_str( seconds_from_epoch, time_str ):
+    time_groups = parse_time_groups( time_str )
+    return reset_time_of_day( seconds_from_epoch, *time_groups )
+
+def verify_and_convert_edit_form( form ):
+    timekeeper_db = get_timekeeper_db( )
+    converted = []
+    for i, item in zip( range( len( form ) ), form ):
+        original_timesheet = timekeeper_db.get_timesheet( item.timesheet_id )
+        if not original_timesheet:
+            raise RuntimeError( "Wrong timesheet id." )
+
+        try:
+            original_timesheet.time_start = reset_time_of_day_from_time_str( original_timesheet.time_start, item.time_start )
+            if item.time_stop != "":
+                original_timesheet.time_stop = reset_time_of_day_from_time_str( original_timesheet.time_stop, item.time_stop )
+            elif i < len( form ) -1:
+                raise RuntimeError( "Only last interval can be open." )
+        except ValueError as e:
+            raise RuntimeError( "Could not parse time: " + str( e ) )
+
+        converted.append( original_timesheet )
+
+    return converted
 
 def check_session( f ):
     def decorator( ):
@@ -112,7 +149,9 @@ def edit_page( session ):
     if flask.request.method == 'POST':
         try:
             timesheets = process_edit_form( flask.request.form )
-            message = "not implemented yet\n" + str( timesheets )
+            processed_timesheets = verify_and_convert_edit_form( timesheets )
+            message = "not implemented yet\nform: " + str( timesheets ) + "\nprocessed: " + str( processed_timesheets )
+
         except RuntimeError as e:
             message = "edit form processing error: " + str( e )
         

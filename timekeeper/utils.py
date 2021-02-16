@@ -1,6 +1,6 @@
 import time
 
-def reset_hours_minutes_seconds( original_time, hours, minutes, seconds = None ):
+def reset_time_of_day( original_time, hours, minutes, seconds = None ):
     """
     Given time (in seconds from epoch), modifies it so its hours/minutes are reset.
     """
@@ -12,7 +12,7 @@ def reset_hours_minutes_seconds( original_time, hours, minutes, seconds = None )
     return time.mktime( time.struct_time( l ) )
 
 def zero_seconds_of_today( ):
-    return reset_hours_minutes_seconds( time.time( ), 0, 0 )
+    return reset_time_of_day( time.time( ), 0, 0 )
 
 def format_time( hours, minutes ):
     return "{}:{}".format( hours, minutes )

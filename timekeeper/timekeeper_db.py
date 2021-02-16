@@ -10,6 +10,12 @@ class DictAsObject:
         for k in d:
             self.__dict__[ k ] = d[ k ]
 
+    def __str__( self ):
+        return "DictAsObject dict=" + str( self.__dict__ )
+
+    def __repr__( self ):
+        return str( self )
+
 def fetchall_as_dicts( cursor ):
     """Fetches all from an sqlite3 cursor and converts each element into dict with column name as dict keys."""
     return [ { k[0] : v for v, k in zip( row, cursor.description ) }
@@ -62,6 +68,15 @@ class TimeKeeperDB:
         day_beginning = zero_seconds_of_today( )
         cursor.execute( "SELECT time_start, time_stop, timesheet_id FROM timesheets WHERE username = ? AND ( time_stop IS NULL OR time_stop > ? )", ( username, day_beginning ) )
         return [ DictAsObject( item ) for item in fetchall_as_dicts( cursor ) ]
+
+    def get_timesheet( self, timesheet_id ):
+        """Returns timesheet object for a given id."""
+        cursor = self.connection.cursor( )
+        cursor.execute( "SELECT time_start, time_stop, timesheet_id FROM timesheets WHERE timesheet_id = ?", ( timesheet_id, ) )
+        select_result = [ DictAsObject( item ) for item in fetchall_as_dicts( cursor ) ]
+        if not select_result:
+            return None
+        return select_result[ 0 ]
 
     def update_timesheet( self, timesheet_id, time_start, time_stop ):
         """Updates a timesheet with given id."""
